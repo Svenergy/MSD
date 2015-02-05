@@ -14,54 +14,6 @@
 #include "uart.h"
 #include "delay.h"
 
-#define ALIGNED(n)      __attribute__((aligned (n)))
-
-// This doesn't work here, but does cause a multiple definition error
-#ifdef NOT_DEFINED
-ALIGNED(4) uint8_t USB_FsConfigDescriptor[] = {
-  /* Configuration 1 */
-    USB_CONFIGURATION_DESC_SIZE,       /* bLength */
-    USB_CONFIGURATION_DESCRIPTOR_TYPE, /* bDescriptorType */
-    WBVAL(
-      USB_CONFIGURATION_DESC_SIZE +
-      USB_INTERFACE_DESC_SIZE +
-      USB_ENDPOINT_DESC_SIZE +
-      USB_ENDPOINT_DESC_SIZE
-    ),                                 /* wTotalLength */
-    0x01,                              /* bNumInterfaces */
-    0x01,                              /* bConfigurationValue */
-    0x00,                              /* iConfiguration */
-    USB_CONFIG_SELF_POWERED,           /* bmAttributes  */
-    USB_CONFIG_POWER_MA(100),          /* bMaxPower */
-  /* Interface 0, Alternate Setting 0, MSC Class */
-    USB_INTERFACE_DESC_SIZE,           /* bLength */
-    USB_INTERFACE_DESCRIPTOR_TYPE,     /* bDescriptorType */
-    0,                                 /* bInterfaceNumber: Number of Interface */
-    0x00,                              /* bAlternateSetting: Alternate setting */
-    0x02,                              /* bNumEndpoints: Two endpoints used */
-    USB_DEVICE_CLASS_STORAGE,          /* bInterfaceClass: Storage device class */
-    MSC_SUBCLASS_SCSI,                 /* bInterfaceSubClass: MSC Subclass */
-    MSC_PROTOCOL_BULK_ONLY,            /* bInterfaceProtocol: MSC Protocol */
-    0x05,                              /* iInterface: Index to string descriptor containing interface description. */
-  /* Bulk In Endpoint */
-    USB_ENDPOINT_DESC_SIZE,            /* bLength */
-    USB_ENDPOINT_DESCRIPTOR_TYPE,      /* bDescriptorType */
-    MSC_EP_IN,                         /* bEndpointAddress */
-    USB_ENDPOINT_TYPE_BULK,            /* bmAttributes */
-    WBVAL(USB_FS_MAX_BULK_PACKET),     /* wMaxPacketSize */
-    0x00,                              /* bInterval: ignore for Bulk transfer */
-  /* Bulk Out Endpoint */
-    USB_ENDPOINT_DESC_SIZE,            /* bLength */
-    USB_ENDPOINT_DESCRIPTOR_TYPE,      /* bDescriptorType */
-    MSC_EP_OUT,                        /* bEndpointAddress */
-    USB_ENDPOINT_TYPE_BULK,            /* bmAttributes */
-    WBVAL(USB_FS_MAX_BULK_PACKET),     /* wMaxPacketSize */
-    0x00,                              /* bInterval: ignore for Bulk transfer */
-  /* Terminator */
-    0                  /* bLength */
-};
-#endif
-
 static USBD_HANDLE_T g_hUsb;
 const  USBD_API_T *g_pUsbApi;
 
@@ -503,65 +455,9 @@ int main(void) {
    * descriptor arrays point to same location and device_qualifier set
    * to 0.
    */
-
-  // Find a way to delete this and use the definition in msc_desc.c
-  // For now it only works when USB_FsConfigDescriptor is defined here
-#ifndef NOT_DEFINED
-  ALIGNED(4) uint8_t USB_FsConfigDescriptor[] = {
-  /* Configuration 1 */
-    USB_CONFIGURATION_DESC_SIZE,       /* bLength */
-    USB_CONFIGURATION_DESCRIPTOR_TYPE, /* bDescriptorType */
-    WBVAL(
-      USB_CONFIGURATION_DESC_SIZE +
-      USB_INTERFACE_DESC_SIZE +
-      USB_ENDPOINT_DESC_SIZE +
-      USB_ENDPOINT_DESC_SIZE
-    ),                                 /* wTotalLength */
-    0x01,                              /* bNumInterfaces */
-    0x01,                              /* bConfigurationValue */
-    0x00,                              /* iConfiguration */
-    USB_CONFIG_SELF_POWERED,           /* bmAttributes  */
-    USB_CONFIG_POWER_MA(500),          /* bMaxPower */
-  /* Interface 0, Alternate Setting 0, MSC Class */
-    USB_INTERFACE_DESC_SIZE,           /* bLength */
-    USB_INTERFACE_DESCRIPTOR_TYPE,     /* bDescriptorType */
-    0,                                 /* bInterfaceNumber: Number of Interface */
-    0x00,                              /* bAlternateSetting: Alternate setting */
-    0x02,                              /* bNumEndpoints: Two endpoints used */
-    USB_DEVICE_CLASS_STORAGE,          /* bInterfaceClass: Storage device class */
-    MSC_SUBCLASS_SCSI,                 /* bInterfaceSubClass: MSC Subclass */
-    MSC_PROTOCOL_BULK_ONLY,            /* bInterfaceProtocol: MSC Protocol */
-    0x05,                              /* iInterface: Index to string descriptor containing interface description. */
-  /* Bulk In Endpoint */
-    USB_ENDPOINT_DESC_SIZE,            /* bLength */
-    USB_ENDPOINT_DESCRIPTOR_TYPE,      /* bDescriptorType */
-    MSC_EP_IN,                         /* bEndpointAddress */
-    USB_ENDPOINT_TYPE_BULK,            /* bmAttributes */
-    WBVAL(USB_FS_MAX_BULK_PACKET),     /* wMaxPacketSize */
-    0x00,                              /* bInterval: ignore for Bulk transfer */
-  /* Bulk Out Endpoint */
-    USB_ENDPOINT_DESC_SIZE,            /* bLength */
-    USB_ENDPOINT_DESCRIPTOR_TYPE,      /* bDescriptorType */
-    MSC_EP_OUT,                        /* bEndpointAddress */
-    USB_ENDPOINT_TYPE_BULK,            /* bmAttributes */
-    WBVAL(USB_FS_MAX_BULK_PACKET),     /* wMaxPacketSize */
-    0x00,                              /* bInterval: ignore for Bulk transfer */
-  /* Terminator */
-    0                  /* bLength */
-  };
-#endif
-
   desc.high_speed_desc = USB_FsConfigDescriptor;
   desc.full_speed_desc = USB_FsConfigDescriptor;
   desc.device_qualifier = 0;
-
-  // test debug print
-  sprintf(buffer,"\n\ndesc.high_speed_desc");
-  putLineUART(buffer);
-  sMemDump_8((uint8_t *)desc.high_speed_desc, sizeof(USB_FsConfigDescriptor)); //dump desc.high_speed_desc
-  sprintf(buffer,"\n\n");
-  putLineUART(buffer);
-  // end test debug print
 
   /* USB Initialization */
   ret = USBD_API->hw->Init(&g_hUsb, &desc, &usb_param);
@@ -579,14 +475,11 @@ int main(void) {
 
     // check we are referencing to the proper interface descriptor
     if((pIntfDesc == 0) || (pIntfDesc->bInterfaceClass != USB_DEVICE_CLASS_STORAGE) || (pIntfDesc->bInterfaceSubClass != MSC_SUBCLASS_SCSI)) {
-      // Print a memory dump of what is at pIntfDesc and beyond
+      // Print what is at pIntfDesc
       sprintf(buffer,"USB ERROR: Interface Descriptor Error\n");
       putLineUART(buffer);
       sprintf(buffer,"0x%08x, %02x, %02x\n", pIntfDesc, pIntfDesc->bInterfaceClass, pIntfDesc->bInterfaceSubClass);
       putLineUART(buffer);
-      sMemDump_8((uint8_t *)pIntfDesc, 512); //dump 512 bytes of memory starting at pIntfDesc
-      sMemDump_32((uint32_t *)pIntfDesc, 512); //dump 512 bytes of memory starting at pIntfDesc
-      //sMemDump_32((uint32_t *)0x02000000, 36*1024); //dump all memory
       errorUSB();
     }
     
