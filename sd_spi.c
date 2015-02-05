@@ -151,7 +151,7 @@ static SD_ERROR sd_send_command(uint16_t cmd,uint32_t data) {
     tmp = SPI_ReadByte();
   }
 
-  // If the response is a "busy" type (R1b), then there�s some
+  // If the response is a "busy" type (R1b), then there's some
   // special handling that needs to be done. The card will
   // output a continuous stream of zeros, so the end of the BUSY
   // state is signaled by any nonzero response. The bus idles
@@ -160,7 +160,7 @@ static SD_ERROR sd_send_command(uint16_t cmd,uint32_t data) {
   if ((cmd&0xFF00) == R1b) {
     
     // This should never time out, unless SDI is grounded.
-    // Don�t bother forcing a timeout condition here.
+    // Don't bother forcing a timeout condition here.
     do {
       tmp = SPI_ReadByte();
     } while (tmp != 0xFF);    
@@ -244,7 +244,7 @@ SD_ERROR init_sd_spi(SD_CardInfo *cardinfo) {
           }
           while (((response[0]&R1_IN_IDLE_STATE)==R1_IN_IDLE_STATE) && (time2-time1 < SD_CMD_TIMEOUT));
           
-          // As long as we didn�t hit the timeout, assume we�re OK.
+          // As long as we didn't hit the timeout, assume we're OK.
           if (time2-time1 >= SD_CMD_TIMEOUT) {    
             return ERROR_INIT_TIMEOUT;
           }
@@ -280,7 +280,7 @@ SD_ERROR init_sd_spi(SD_CardInfo *cardinfo) {
     }
     while (((response[0]&R1_IN_IDLE_STATE)==R1_IN_IDLE_STATE) && (time2-time1 < SD_CMD_TIMEOUT));
     
-    // As long as we didn�t hit the timeout, assume we�re OK.
+    // As long as we didn't hit the timeout, assume we're OK.
     if (time2-time1 >= SD_CMD_TIMEOUT) {    
       return ERROR_INIT_TIMEOUT;
     }
@@ -384,7 +384,7 @@ uint8_t sd_read_block (uint32_t blockaddr,uint8_t *data) {
   for(i=0; i<SD_BLOCKSIZE; i++) {
     *data++ = SPI_ReadByte();
   }
- 
+
   //crc
   SPI_WriteDummyByte(); 
   SPI_WriteDummyByte(); 

@@ -6,6 +6,7 @@
  */
 
 #include "app_usbd_cfg.h"
+#include "usbd.h"
 
 /**
  * USB Standard Device Descriptor

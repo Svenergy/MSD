@@ -22,7 +22,7 @@ uint8_t bufv[SD_BLOCKSIZE];
 
 // Zero-Copy Data Transfer model
 void MSC_Read(uint32_t offset, uint8_t** buff_adr, uint32_t length, uint32_t high_offset) {
-  
+  Board_LED_Set(0, false); // red LED on when reading
   uint32_t j = offset%SD_BLOCKSIZE;
   
   // Host requests data in chunks of 512 bytes, USB bulk endpoint size is 64 bytes.
@@ -33,10 +33,11 @@ void MSC_Read(uint32_t offset, uint8_t** buff_adr, uint32_t length, uint32_t hig
   }  
   
   *buff_adr = &bufr[j];
+  Board_LED_Set(0, true); // red LED on when reading
 }
 
 void MSC_Write(uint32_t offset, uint8_t** buff_adr, uint32_t length, uint32_t high_offset) {
-
+  Board_LED_Set(1, false); // green LED on when writing
   uint32_t j = offset%SD_BLOCKSIZE;
   
   // Host requests data in chunks of 512 bytes, USB bulk endpoint size is 64 bytes.
@@ -47,6 +48,7 @@ void MSC_Write(uint32_t offset, uint8_t** buff_adr, uint32_t length, uint32_t hi
   if((offset+USB_FS_MAX_BULK_PACKET)%SD_BLOCKSIZE==0) {
     sd_write_block(offset/SD_BLOCKSIZE,bufw);    
   }
+  Board_LED_Set(1, true); // green LED on when writing
 }
 
 // TODO: untested
