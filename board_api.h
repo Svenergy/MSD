@@ -76,38 +76,19 @@ void Board_SetupClocking(void);
 void Board_Init(void);
 
 /**
- * @brief	Initializes board UART for output, required for printf redirection
- * @return	None
- */
-void Board_Debug_Init(void);
-
-/**
- * @brief	Sends a single character on the UART, required for printf redirection
- * @param	ch	: character to send
- * @return	None
- */
-void Board_UARTPutChar(char ch);
-
-/**
- * @brief	Get a single character from the UART, required for scanf input
- * @return	EOF if not character was received, or character value
- */
-int Board_UARTGetChar(void);
-
-/**
- * @brief	Prints a string to the UART
- * @param	str	: Terminated string to output
- * @return	None
- */
-void Board_UARTPutSTR(char *str);
-
-/**
  * @brief	Sets the state of a board LED to on or off
  * @param	LEDNumber	: LED number to set state for
  * @param	State		: true for on, false for off
  * @return	None
  */
 void Board_LED_Set(uint8_t LEDNumber, bool State);
+
+/**
+ * @brief	Sets the color of the board LEDs
+ * @param	Color	: Color to set to
+ * @return	None
+ */
+void Board_LED_Color(COLOR_T color);
 
 /**
  * @brief	Returns the current state of a board LED
@@ -122,21 +103,6 @@ bool Board_LED_Test(uint8_t LEDNumber);
  * @return	None
  */
 void Board_LED_Toggle(uint8_t LEDNumber);
-
-/* The DEBUG* functions are selected based on system configuration.
-   Code that uses the DEBUG* functions will have their I/O routed to
-   the UART, semihosting, or nowhere. */
-#if defined(DEBUG_ENABLE)
-#define DEBUGINIT() Board_Debug_Init()
-#define DEBUGOUT(...) printf(__VA_ARGS__)
-#define DEBUGSTR(str) Board_UARTPutSTR(str)
-#define DEBUGIN() Board_UARTGetChar()
-#else
-#define DEBUGINIT()
-#define DEBUGOUT(...)
-#define DEBUGSTR(str)
-#define DEBUGIN() (int) EOF
-#endif /* defined(DEBUG_ENABLE) */
 
 #ifdef __cplusplus
 }

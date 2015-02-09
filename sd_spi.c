@@ -5,9 +5,7 @@
  *      Author: Kestutis Bivainis
  */
 
-#include "board.h"
 #include "sd_spi.h"
-#include "delay.h"
 
 // Table for CRC-7 (polynomial x^7 + x^3 + 1)
 static uint8_t CRCTable[256];

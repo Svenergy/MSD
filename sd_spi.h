@@ -8,6 +8,9 @@
 #ifndef _SD_SPI_H_
 #define _SD_SPI_H_
 
+#include "delay.h"
+#include "board.h"
+
 #include <stdint.h>
 
 #define PIN_CLK 18

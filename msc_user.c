@@ -13,6 +13,8 @@
 #include <stdio.h>
 #include "sd_spi.h"
 
+extern void error(void);
+
 // read buffer
 uint8_t bufr[SD_BLOCKSIZE];
 // write buffer
@@ -22,22 +24,24 @@ uint8_t bufv[SD_BLOCKSIZE];
 
 // Zero-Copy Data Transfer model
 void MSC_Read(uint32_t offset, uint8_t** buff_adr, uint32_t length, uint32_t high_offset) {
-  Board_LED_Set(0, false); // red LED on when reading
+  Board_LED_Color(LED_PURPLE); // Purple MSC read
   uint32_t j = offset%SD_BLOCKSIZE;
   
   // Host requests data in chunks of 512 bytes, USB bulk endpoint size is 64 bytes.
   // For each sector of 512 bytes, this function gets called 8 times with length=64 bytes
   // First time read whole 512 bytes sector, and then just change pointer in the buffer
   if(j==0) {
-    sd_read_block(offset/SD_BLOCKSIZE,bufr);
+    if(sd_read_block(offset/SD_BLOCKSIZE,bufr)!=SD_OK){
+    	error();
+    }
   }  
   
   *buff_adr = &bufr[j];
-  Board_LED_Set(0, true); // red LED on when reading
+  Board_LED_Color(LED_YELLOW); // Yellow MSC idle
 }
 
 void MSC_Write(uint32_t offset, uint8_t** buff_adr, uint32_t length, uint32_t high_offset) {
-  Board_LED_Set(1, false); // green LED on when writing
+  Board_LED_Color(LED_CYAN); // Cyan MSC write
   uint32_t j = offset%SD_BLOCKSIZE;
   
   // Host requests data in chunks of 512 bytes, USB bulk endpoint size is 64 bytes.
@@ -46,9 +50,11 @@ void MSC_Write(uint32_t offset, uint8_t** buff_adr, uint32_t length, uint32_t hi
   memcpy(&bufw[j],*buff_adr,length);
   
   if((offset+USB_FS_MAX_BULK_PACKET)%SD_BLOCKSIZE==0) {
-    sd_write_block(offset/SD_BLOCKSIZE,bufw);    
+    if(sd_write_block(offset/SD_BLOCKSIZE,bufw)!=SD_OK){
+    	error();
+    }
   }
-  Board_LED_Set(1, true); // green LED on when writing
+  Board_LED_Color(LED_YELLOW); // Yellow MSC idle
 }
 
 // TODO: untested

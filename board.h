@@ -4,6 +4,17 @@
 #include "chip.h"
 /* board_api.h is included at the bottom of this file after DEBUG setup */
 
+/* Set up board led colors */
+typedef enum {
+	LED_OFF,
+	LED_RED,
+	LED_GREEN,
+	LED_BLUE,
+	LED_YELLOW,
+	LED_CYAN,
+	LED_PURPLE,
+	LED_WHITE,
+} COLOR_T;
 
 /* **** Set up board GPIO pin numbering **** */
 /* all pins are on GPIO port 0 */
@@ -51,22 +62,6 @@
 
 // USB pins
 #define VBUS 16
-
-
-/** Define DEBUG_ENABLE to enable IO via the DEBUGSTR, DEBUGOUT, and
-    DEBUGIN macros. If not defined, DEBUG* functions will be optimized
-    out of the code at build time.
- */
-#define DEBUG_ENABLE
-
-/** Board UART used for debug output and input using the DEBUG* macros. This
-    is also the port used for Board_UARTPutChar, Board_UARTGetChar, and
-    Board_UARTPutSTR functions.
- */
-#define DEBUG_UART LPC_USART0
-
-/* Board name */
-#define BOARD_DAQ_SYSTEM
 
 #include "board_api.h"
 

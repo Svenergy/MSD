@@ -44,7 +44,7 @@ void putLineUART(const char *send_data) {
 
 static void Init_UART0_PinMux(void) {
   
-  /* UART signals on pins PIO0_13 (FUNC0, U0_TXD) and PIO0_18 (FUNC0, U0_RXD) */
+  /* UART signals on pins PIO0_26 and PIO0_27 */
   Chip_IOCON_PinMuxSet(LPC_IOCON, 0, RSEL2, (IOCON_FUNC0 | IOCON_MODE_INACT | IOCON_DIGMODE_EN));
   Chip_IOCON_PinMuxSet(LPC_IOCON, 0, RSEL1, (IOCON_FUNC0 | IOCON_MODE_INACT | IOCON_DIGMODE_EN));
 

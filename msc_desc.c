@@ -46,7 +46,7 @@ ALIGNED(4) const uint8_t USB_FsConfigDescriptor[] = {
   0x01,                              /* bConfigurationValue */
   0x00,                              /* iConfiguration */
   USB_CONFIG_SELF_POWERED,           /* bmAttributes  */
-  USB_CONFIG_POWER_MA(100),          /* bMaxPower */
+  USB_CONFIG_POWER_MA(500),          /* bMaxPower */
 /* Interface 0, Alternate Setting 0, MSC Class */
   USB_INTERFACE_DESC_SIZE,           /* bLength */
   USB_INTERFACE_DESCRIPTOR_TYPE,     /* bDescriptorType */

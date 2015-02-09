@@ -490,6 +490,3 @@ __attribute__ ((section(".after_vectors")))
 void IntDefaultHandler(void)
 { while(1) {}
 }
-
-
-
