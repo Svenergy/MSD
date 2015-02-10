@@ -11,8 +11,8 @@ N/A = off
 RED = recording data
 GREEN = power on idle
 YELLOW = mass storage mode idle
-PURPLE = mass storage mode data read
-CYAN = mass storage mode data write
+PURPLE = mass storage mode data read/write
+CYAN = SD card not present
 BLUE = error
 
 */
@@ -98,15 +98,29 @@ void SysTick_Handler(void){
 	// Initialize SD card after every insertion
 	if (Chip_GPIO_GetPinState(LPC_GPIO, 0, CARD_DETECT)){
 		// Card out
+		Board_LED_Color(LED_CYAN);
 		sd_state = SD_OUT;
 	}else{
 		// Card in
 		if (sd_state == SD_OUT){
+			// Delay 200ms to let connections and power stabilize
+			DWT_Delay(200000);
 			if(init_sd_spi(&cardinfo) != SD_OK) {
 				error(); // SD card could not be initialized
 			}
+			switch(system_state){
+			case STATE_IDLE:
+				Board_LED_Color(LED_GREEN);
+				break;
+			case STATE_MSC:
+				Board_LED_Color(LED_YELLOW);
+				break;
+			case STATE_DAQ:
+				Board_LED_Color(LED_RED);
+				break;
+			}
+			sd_state = SD_READY;
 		}
-		sd_state = SD_READY;
 	}
 
 	// Shut down if PB is long pressed
@@ -132,10 +146,12 @@ void error(void){
 
 void shutDown(void){
 	// Shut down procedures
-	// LEDs off
-	Board_LED_Set(0, false);
-	Board_LED_Set(1, false);
-	Board_LED_Set(2, false);
+	Board_LED_Color(LED_OFF);
+
+	// Safely stop data acquisition if needed
+	if(system_state == STATE_DAQ){
+		daq_stop();
+	}
 
 	// Send Shutdown debug string
 	putLineUART("SHUTDOWN\n");
@@ -201,9 +217,6 @@ int main(void) {
 	// Set up UART for debug
 	init_uart(115200);
 
-	// Turn on Green LED
-	Board_LED_Set(1, true);
-
 	// Send Startup debug string
 	putLineUART("STARTUP\n");
 
@@ -224,6 +237,7 @@ int main(void) {
 
 	// Set SD state out to force card init in sysTick loop
 	sd_state = SD_OUT;
+	Board_LED_Color(LED_CYAN);
 
 	// Idle and run systick loop until triggered or plugged in as a USB device
 	system_state = STATE_IDLE;

@@ -3,6 +3,8 @@
  *
  *  Created on: 2014.07.04
  *      Author: Kestutis Bivainis
+ *
+ *  Expanded to include multiple block r/w by Kyle Smith
  */
 
 #ifndef _SD_SPI_H_
@@ -54,8 +56,9 @@ typedef enum {
 
 #define DATA_RESPONSE_TOKEN_DATA_ACCEPTED 0x05
 
-#define SD_TOK_READ_STARTBLOCK 0xFE
+#define SD_TOK_READ_STARTBLOCK  0xFE
 #define SD_TOK_WRITE_STARTBLOCK 0xFE
+#define SD_STOPTRAN_WRITE       0xFD
 
 // Mask off the bits in the OCR corresponding to voltage range 3.2V to 3.4V, OCR bits 20 and 21
 #define MSK_OCR_33 0x03
@@ -203,7 +206,9 @@ typedef struct
 
 SD_ERROR init_sd_spi(SD_CardInfo *cardinfo);
 uint8_t sd_read_block (uint32_t blockaddr,uint8_t *data);
+uint8_t sd_read_multiple_blocks (uint32_t blockaddr, uint32_t blockcount, uint8_t *data);
 uint8_t sd_write_block (uint32_t blockaddr,uint8_t *data);
+uint8_t sd_write_multiple_blocks (uint32_t blockaddr, uint32_t blockcount, uint8_t *data);
 SD_ERROR sd_read_cid(SD_CID *sd_cid,CARD_TYPE ct);
 SD_ERROR sd_read_csd(SD_CSD *sd_csd,CARD_TYPE ct);
 

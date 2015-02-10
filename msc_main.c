@@ -72,7 +72,13 @@ MSC_ERR msc_init(void){
 	msc_param.InquiryStr = InquiryStr;
 	msc_param.BlockCount = cardinfo.CardCapacity/SD_BLOCKSIZE;
 	msc_param.BlockSize = SD_BLOCKSIZE;
-	msc_param.MemorySize = cardinfo.CardCapacity;
+
+	// Attempting to accept cards >4gb, doesn't allow read/write beyond 4gb, may not be necessary for reading up to the full 4gb mark
+	if(cardinfo.CardCapacity > 0xFFFFFFFF){
+		msc_param.MemorySize = 0xFFFFFFFF;
+	}else{
+		msc_param.MemorySize = cardinfo.CardCapacity;
+	}
 
 	pIntfDesc = (USB_INTERFACE_DESCRIPTOR*)((uint32_t)desc.high_speed_desc + USB_CONFIGURATION_DESC_SIZE);
 

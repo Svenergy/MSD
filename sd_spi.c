@@ -3,6 +3,8 @@
  *
  *  Created on: 2014.07.04
  *      Author: Kestutis Bivainis
+ *
+ *  Expanded to include multiple block r/w by Kyle Smith
  */
 
 #include "sd_spi.h"
@@ -226,6 +228,9 @@ SD_ERROR init_sd_spi(SD_CardInfo *cardinfo) {
           // SD 1.x          
           cardinfo->CardType = SD_CARD_STD_CAPACITY_V1_1;
           // TODO: Didn't have SD 1.x cards to test the loop below
+
+          time1=DWT_Get();
+
           // Loop till card goes out of idle
           do
           {
@@ -392,6 +397,68 @@ uint8_t sd_read_block (uint32_t blockaddr,uint8_t *data) {
   return 0;
 }
 
+uint8_t sd_read_multiple_blocks (uint32_t blockaddr, uint32_t blockcount, uint8_t *data) {
+
+  uint32_t i,bn;
+  uint8_t tmp;
+  uint32_t time1,time2;
+
+  // convert to block address
+  if(cardinfo.CardType!=SD_CARD_HIGH_CAPACITY) {
+    blockaddr<<=SD_BLOCKSIZE_NBITS;
+  }
+
+  // Send read multiple blocks command
+  if(sd_send_command(CMD18, blockaddr)!=SD_OK) {
+    return 1;
+  }
+
+  // Check for an error, like a misaligned read
+  if(response[0]) {
+    return 1;
+  }
+
+  for(bn=0; bn<blockcount; bn++) {
+
+	  // Wait for the token
+	  time1=DWT_Get();
+	  do{
+		tmp = SPI_ReadByte();
+		time2=DWT_Get();
+	  }
+	  while ((tmp == 0xFF) && (time2-time1 < SD_CMD_TIMEOUT));
+
+	  if (time2-time1 >= SD_CMD_TIMEOUT) {
+		return 1;
+	  }
+
+	  if (tmp != SD_TOK_READ_STARTBLOCK)
+	  {
+		// Clock out a byte before returning
+		SPI_WriteDummyByte();
+		// The card returned an error response. Bail and return 1
+		return 1;
+	  }
+
+	  for(i=0; i<SD_BLOCKSIZE; i++) {
+		*data++ = SPI_ReadByte();
+	  }
+
+	  //crc
+	  SPI_WriteDummyByte();
+	  SPI_WriteDummyByte();
+  }
+
+  // Send stop transmission command
+  if(sd_send_command(CMD12, 0)!=SD_OK) {
+    return 1;
+  }
+
+  SPI_WriteDummyByte();
+
+  return 0;
+}
+
 uint8_t sd_write_block (uint32_t blockaddr,uint8_t *data) {
   
   uint32_t i;
@@ -436,6 +503,76 @@ uint8_t sd_write_block (uint32_t blockaddr,uint8_t *data) {
   
   return 0;
   
+}
+
+uint8_t sd_write_multiple_blocks (uint32_t blockaddr, uint32_t blockcount, uint8_t *data) {
+  uint32_t i,bn;
+  uint8_t tmp;
+
+  // convert to block address
+  if(cardinfo.CardType!=SD_CARD_HIGH_CAPACITY) {
+	blockaddr<<=SD_BLOCKSIZE_NBITS;
+  }
+
+  // Send app command
+  if(sd_send_command(CMD55, 0)!=SD_OK) {
+	putLineUART("ERROR 1\n");
+  	return 1;
+  }
+
+  // Set number of blocks to pre-erase
+  if(sd_send_command(ACMD23, blockcount)!=SD_OK) {
+	putLineUART("ERROR 2\n");
+  	return 1;
+  }
+
+  // Write multiple block
+  if(sd_send_command(CMD25, blockaddr)!=SD_OK) {
+    putLineUART("ERROR 3\n");
+	return 1;
+  }
+
+  // Check for an error, like a misaligned write
+  if(response[0]) {
+	putLineUART("ERROR 4\n");
+	return 1;
+  }
+
+  SPI_WriteDummyByte();
+
+  for(bn=0; bn<blockcount; bn++) {
+
+	  // indicate start of block
+	  SPI_WriteByte(SD_TOK_WRITE_STARTBLOCK);
+
+	  for(i=0; i<SD_BLOCKSIZE; i++) {
+		SPI_WriteByte(*data++);
+	  }
+
+	  //crc
+	  SPI_WriteDummyByte();
+	  SPI_WriteDummyByte();
+
+	  // check the response token
+	  tmp=SPI_ReadByte();
+	  if((tmp & 0x1F) != DATA_RESPONSE_TOKEN_DATA_ACCEPTED) {
+		  SPI_WriteDummyByte();
+		  char buf[32];
+		  sprintf(buf, "\nERROR 5, tmp = 0x%02X\n",tmp);
+		  putLineUART(buf);
+		  return 1;
+	  }
+
+	  // wait for write finish
+	  while(SPI_ReadByte()==0){};
+  }
+
+  // Send stop transmission token
+  SPI_WriteByte(SD_STOPTRAN_WRITE);
+
+  SPI_WriteDummyByte();
+
+  return 0;
 }
 
 SD_ERROR sd_read_cid(SD_CID *sd_cid,CARD_TYPE ct) {

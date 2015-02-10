@@ -55,7 +55,7 @@ extern "C" {
 //*****************************************************************************
 #if defined (__USE_CMSIS) || defined (__USE_LPCOPEN)
 // Declaration of external SystemInit function
-extern void SystemInit(void);
+extern void Board_SystemInit(void);
 #endif
 
 //*****************************************************************************
