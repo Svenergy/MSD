@@ -100,7 +100,7 @@ DRESULT disk_write (
 				return RES_ERROR;
 			} else {
 				sector++;
-				buff += _MAX_SS
+				buff += _MAX_SS;
 				count--;
 			}
 		}
