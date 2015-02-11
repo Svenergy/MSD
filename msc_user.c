@@ -7,14 +7,15 @@
  *  Modified by Kyle Smith to allow multiple block read
  */
 
+#include <cr_section_macros.h>
+#include <string.h>
+#include <stdio.h>
+
 #include "board.h"
 #include "msc_usb.h"
 #include "app_usbd_cfg.h"
 #include "error.h"
-#include <string.h>
-#include <stdio.h>
 #include "sd_spi.h"
-#include <cr_section_macros.h>
 
 extern void error(void);
 

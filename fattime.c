@@ -1,5 +1,4 @@
 #include "fattime.h"
-#include "time.h"
 
 /*---------------------------------------------------------*/
 /* User Provided Timer Function for FatFs module           */

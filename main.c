@@ -1,7 +1,7 @@
 /*
 ===============================================================================
- Name        : analog_test.c
- Author      : Kyle Smith
+ Name        : daq_system.c
+ Authors      : Kyle Smith and Sven Opdyke
  Version     :
  Copyright   : $(copyright)
  Description : main definition
@@ -18,7 +18,6 @@ BLUE = error
 */
 
 #include <stdio.h>
-#include <cr_section_macros.h>
 
 #include "board.h"
 #include "daq.h"
@@ -28,7 +27,6 @@ BLUE = error
 #include "sd_spi.h"
 #include "push_button.h"
 #include "fatfstest.h"
-#include "rtc_15xx.h"
 
 #define TICKRATE_HZ1 (100)	/* 100 ticks per second */
 

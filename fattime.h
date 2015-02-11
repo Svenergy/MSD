@@ -1,7 +1,10 @@
 #ifndef FATTIME_H_
+#define FATTIME_H_
 
+#include <time.h>
+
+#include "board.h"
 #include "integer.h"
-#include "rtc_15xx.h"
 
 typedef struct {
 	WORD	year;	/* 1..4095 */

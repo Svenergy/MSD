@@ -1,6 +1,8 @@
 #ifndef __DAQ_
 #define __DAQ_
 
+#include <string.h>
+
 #include "board.h"
 #include "adc_spi.h"
 

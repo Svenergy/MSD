@@ -6,8 +6,6 @@
  */
 
 #include "fatfstest.h"
-#include "ff.h"
-#include "string.h"
 
 void testFS() {
 

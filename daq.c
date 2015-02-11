@@ -67,10 +67,10 @@ void daq_config_default(void){
 
 	// Channel_Config defaults
 	for(i=0;i<3;i++){
-		channel_config[i].enable = true;		// enable channel
-		channel_config[i].range = V5;			// 0-5v input range
-		channel_config[i].units_per_volt = 1.0;	// output in volts
-		channel_config[i].unit_name[8] = "V";	// name of channel units
+		channel_config[i].enable = true;			// enable channel
+		channel_config[i].range = V5;				// 0-5v input range
+		channel_config[i].units_per_volt = 1.0;		// output in volts
+		strcpy(channel_config[i].unit_name, "V");	// name of channel units
 
 		channel_config[i].v5_zero_offset = 0.0;			// theoretical value of raw 16-bit sample for 0 input voltage
 		channel_config[i].v5_LSB_per_volt = 12812.749;	// theoretical sensitivity of reading in LSB / volt = (1 << 16) / (4.096 * ( (402+100) / 402 ))
