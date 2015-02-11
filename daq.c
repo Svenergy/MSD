@@ -33,6 +33,13 @@ void daq_init(void){
 	 * Set up vout PWM and SCT0 interrupt
 	 * Delay 200ms to allow system to stabilize
 	 */
+
+	// Read config
+	daq_config_default();
+
+	// Set up sampling interrupt using RIT
+
+
 }
 
 // Stop acquiring data
@@ -56,9 +63,24 @@ void daq_config_from_file(void){
 
 // Set channel configuration defaults
 void daq_config_default(void){
-	/*
-	 * Set Channel_Config defaults
-	 * Set sample_rate
-	 * Set mv_out
-	 */
+	int i;
+
+	// Channel_Config defaults
+	for(i=0;i<3;i++){
+		channel_config[i].enable = true;		// enable channel
+		channel_config[i].range = V5;			// 0-5v input range
+		channel_config[i].units_per_volt = 1.0;	// output in volts
+		channel_config[i].unit_name[8] = "V";	// name of channel units
+
+		channel_config[i].v5_zero_offset = 0.0;			// theoretical value of raw 16-bit sample for 0 input voltage
+		channel_config[i].v5_LSB_per_volt = 12812.749;	// theoretical sensitivity of reading in LSB / volt = (1 << 16) / (4.096 * ( (402+100) / 402 ))
+		channel_config[i].v24_zero_offset = 32511.134;	// theoretical value of raw 16-bit sample for 0 input voltage = (1 << 16) * ( (1/(1/100+1/402+1/21)) / (1/(1/100+1/402+1/21) + 16.9) )
+		channel_config[i].v24_LSB_per_volt = 1341.402;	// theoretical sensitivity of reading in LSB / volt = ((1 << 16)/4.096) * (1/(1/100+1/402+1/21+1/16.9)) / 100
+	}
+
+	// Sample rate 10Hz
+	sample_rate = 10;
+
+	// Vout = 5v
+	mv_out = 5000;
 }
