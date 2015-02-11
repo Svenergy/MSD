@@ -97,8 +97,10 @@ STATIC const SWM_GRP_T swmSetup[] = {
 	{(uint16_t) SWM_USB_VBUS_I, 0, VBUS},		/* PIO0_16-ISP_1-AIN_CTRL */
 
 	/* UART */
+#ifdef DEBUG
 	{(uint16_t) SWM_UART0_RXD_I, 0, UART0_RX},		/* PIO0_27-UART0_RX */
 	{(uint16_t) SWM_UART0_TXD_O, 0, UART0_TX},		/* PIO0_26-UART0_TX */
+#endif
 };
 
 /* Setup fixed pin functions (GPIOs are fixed) */

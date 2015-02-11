@@ -555,9 +555,11 @@ uint8_t sd_write_multiple_blocks (uint32_t blockaddr, uint32_t blockcount, uint8
 	  tmp=SPI_ReadByte();
 	  if((tmp & 0x1F) != DATA_RESPONSE_TOKEN_DATA_ACCEPTED) {
 		  SPI_WriteDummyByte();
+#ifdef DEBUG
 		  char buf[32];
 		  sprintf(buf, "\nERROR:, tmp = 0x%02X\n",tmp);
 		  putLineUART(buf);
+#endif
 		  return 1;
 	  }
 
