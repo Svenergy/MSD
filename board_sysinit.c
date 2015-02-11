@@ -56,7 +56,7 @@ STATIC const PINMUX_GRP_T ioconSetup[] = {
 	{0, VBAT_D,	(IOCON_MODE_INACT)},							/* PIO0_5-ADC0_3 */
 
 	/* Sensor power output */
-	{0, VOUT_SHDN, (IOCON_MODE_PULLDOWN | IOCON_DIGMODE_EN)},	/* PIO0_25 */
+	{0, VOUT_N_SHDN, (IOCON_MODE_PULLDOWN | IOCON_DIGMODE_EN)},	/* PIO0_25 */
 	{0, VOUT_PWM,  (IOCON_MODE_PULLDOWN | IOCON_DIGMODE_EN)},	/* PIO0_24 */
 
 	/* Analog range selection / debug UART */

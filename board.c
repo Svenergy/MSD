@@ -24,7 +24,7 @@ const uint32_t RTCOscRateIn = 32768;
 static const uint8_t ledpins[MAXLEDS] = {RED, GREEN, BLUE};
 static const uint8_t ledports[MAXLEDS] = {0, 0, 0};
 
-const _Bool ledColors[8][3] = {
+const bool ledColors[8][3] = {
 	{0,0,0},
 	{1,0,0},
 	{0,1,0},
@@ -34,6 +34,8 @@ const _Bool ledColors[8][3] = {
 	{1,0,1},
 	{1,1,1},
 };
+
+const uint8_t rsel_pins[3] = {RSEL1, RSEL2, RSEL3};
 
 /* Initializes board LED(s) */
 static void Board_LED_Init(void)

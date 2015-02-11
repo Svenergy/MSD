@@ -20,26 +20,47 @@ void RIT_IRQHandler(void){
 	/* Read samples according to config
 	 * Read current time as RTC start time + (sample_interrupt_counter * sample_interval)
 	 * Format samples according to config
-	 * Write samples and timestamp to disk buffer
+	 * Write samples and time stamp to disk buffer
 	 */
 }
 
 // Start acquiring data
 void daq_init(void){
-	/* Call read config
-	 * Set up sample interrupt using RIT
-	 * Set up channel ranges
-	 * Enable Vout using ~SHDN
-	 * Set up vout PWM and SCT0 interrupt
-	 * Delay 200ms to allow system to stabilize
-	 */
+	int i;
 
 	// Read config
 	daq_config_default();
 
 	// Set up sampling interrupt using RIT
+	Chip_RIT_Init(LPC_RITIMER);
+	Chip_RIT_SetTimerIntervalHz(LPC_RITIMER, sample_rate);
+	Chip_RIT_Enable(LPC_RITIMER);
 
+	NVIC_EnableIRQ(RITIMER_IRQn);
+	NVIC_SetPriority(RITIMER_IRQn, 0x00); // Set to highest priority to ensure sample timing accuracy
 
+	// Set up channel ranges in hardware mux
+	for(i=0;i<3;i++){
+		Chip_GPIO_SetPinState(LPC_GPIO, 0, rsel_pins[i], channel_config[i].range);
+	}
+
+	// Enable Vout using ~SHDN
+	Chip_GPIO_SetPinState(LPC_GPIO, 0, VOUT_N_SHDN, true);
+
+	// Set up Vout PWM
+	Chip_SCTPWM_Init(LPC_SCT0);
+	Chip_SCTPWM_SetRate(LPC_SCT0, 7200); // 7200Hz
+	Chip_SWM_MovablePinAssign(SWM_SCT0_OUT0_O, VOUT_PWM); // Assign PWM to output pin
+	Chip_SCTPWM_SetOutPin(LPC_SCT0, 1, 0); // Set SCT PWM output 1 to SCT pin output 0
+	Chip_SCTPWM_SetDutyCycle(LPC_SCT0, 1, 0); // Set to duty cycle of 0
+	Chip_SCTPWM_Start(LPC_SCT0); // Start PWM
+
+	// Create SCT0 Vout PWM interrupt
+	NVIC_EnableIRQ(SCT0_IRQn);
+	NVIC_SetPriority(RITIMER_IRQn, 0x01); // Set to lower priority that sampling
+
+	// Delay 200ms to allow system to stabilize
+	DWT_Delay(200000);
 }
 
 // Stop acquiring data

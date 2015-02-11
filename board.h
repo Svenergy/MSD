@@ -33,7 +33,7 @@ typedef enum {
 #define VBAT_D 5 // PIO0_5
 
 // Sensor power output
-#define VOUT_SHDN 25
+#define VOUT_N_SHDN 25
 #define VOUT_PWM 24
 
 // Analog input range selection

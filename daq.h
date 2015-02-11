@@ -5,6 +5,7 @@
 
 #include "board.h"
 #include "adc_spi.h"
+#include "delay.h"
 
 // Voltage range type
 typedef enum {
@@ -30,6 +31,8 @@ typedef struct Channel_Config {
 	float v24_zero_offset;	// value of raw 16-bit sample for 0 input voltage
 	float v24_LSB_per_volt;	// sensitivity of reading in LSB / volt
 } Channel_Config;
+
+extern uint8_t *rsel_pins;
 
 // Start acquiring data
 void daq_init(void);
