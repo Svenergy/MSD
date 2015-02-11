@@ -27,6 +27,8 @@ BLUE = error
 #include "msc_main.h"
 #include "sd_spi.h"
 #include "push_button.h"
+#include "fatfstest.h"
+#include "rtc_15xx.h"
 
 #define TICKRATE_HZ1 (100)	/* 100 ticks per second */
 
@@ -46,6 +48,8 @@ typedef enum {
 SD_STATE sd_state;
 
 SD_CardInfo cardinfo;
+
+LPC_RTC_T RTC;
 
 float read_vBat(int n);
 void shutDown(void);
@@ -231,6 +235,10 @@ int main(void) {
 	// Set up clocking used by SD lib
 	SystemCoreClockUpdate();
 	DWT_Init();
+
+	// Initialize RTC
+	Chip_RTC_Init(&RTC);
+	Chip_RTC_Enable(&RTC);
 
 	// Initialize sub-systems
 	pb_init(TICKRATE_HZ1);

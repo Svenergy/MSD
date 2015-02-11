@@ -31,6 +31,11 @@ typedef enum {
 /*---------------------------------------*/
 /* Prototypes for disk control functions */
 
+typedef enum {
+	SD_OUT,
+	SD_READY,
+} SD_STATE;
+
 extern SD_STATE sd_state;
 
 DSTATUS disk_initialize (BYTE pdrv);
