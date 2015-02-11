@@ -505,6 +505,8 @@ uint8_t sd_write_block (uint32_t blockaddr,uint8_t *data) {
   
 }
 
+//TODO: Fix this function
+// 		Currently error in data response token after writing the first block
 uint8_t sd_write_multiple_blocks (uint32_t blockaddr, uint32_t blockcount, uint8_t *data) {
   uint32_t i,bn;
   uint8_t tmp;
@@ -516,25 +518,21 @@ uint8_t sd_write_multiple_blocks (uint32_t blockaddr, uint32_t blockcount, uint8
 
   // Send app command
   if(sd_send_command(CMD55, 0)!=SD_OK) {
-	putLineUART("ERROR 1\n");
   	return 1;
   }
 
   // Set number of blocks to pre-erase
   if(sd_send_command(ACMD23, blockcount)!=SD_OK) {
-	putLineUART("ERROR 2\n");
   	return 1;
   }
 
-  // Write multiple block
+  // Write multiple block = CMD25
   if(sd_send_command(CMD25, blockaddr)!=SD_OK) {
-    putLineUART("ERROR 3\n");
 	return 1;
   }
 
   // Check for an error, like a misaligned write
   if(response[0]) {
-	putLineUART("ERROR 4\n");
 	return 1;
   }
 
@@ -542,7 +540,7 @@ uint8_t sd_write_multiple_blocks (uint32_t blockaddr, uint32_t blockcount, uint8
 
   for(bn=0; bn<blockcount; bn++) {
 
-	  // indicate start of block
+	  // Indicate start of block
 	  SPI_WriteByte(SD_TOK_WRITE_STARTBLOCK);
 
 	  for(i=0; i<SD_BLOCKSIZE; i++) {
@@ -558,7 +556,7 @@ uint8_t sd_write_multiple_blocks (uint32_t blockaddr, uint32_t blockcount, uint8
 	  if((tmp & 0x1F) != DATA_RESPONSE_TOKEN_DATA_ACCEPTED) {
 		  SPI_WriteDummyByte();
 		  char buf[32];
-		  sprintf(buf, "\nERROR 5, tmp = 0x%02X\n",tmp);
+		  sprintf(buf, "\nERROR:, tmp = 0x%02X\n",tmp);
 		  putLineUART(buf);
 		  return 1;
 	  }
