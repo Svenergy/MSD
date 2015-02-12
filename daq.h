@@ -6,6 +6,9 @@
 #include "board.h"
 #include "adc_spi.h"
 #include "delay.h"
+#include "adc_spi.h"
+
+#define clamp(amt,low,high) ((amt)<(low)?(low):((amt)>(high)?(high):(amt)))
 
 // Voltage range type
 typedef enum {

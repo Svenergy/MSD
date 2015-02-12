@@ -10,9 +10,40 @@ Channel_Config channel_config[3];
 
 // Vout PWM interrupt
 void SCT0_IRQHandler(void){
-	/* Run PID control loop
+	/* Run PI control loop
 	 * Set new PWM value
 	 */
+
+    static int32_t intError;
+    int32_t propError, pwmOut;
+
+    uint16_t voutCFG = 	(1 << ADC_CFG ) | // Overwrite config
+    					(6 << ADC_INCC) | // Unipolar, referenced to COM
+						(3 << ADC_IN) 	| // Channel IN3
+						(1 << ADC_BW) 	| // Full bandwidth
+						(1 << ADC_REF) 	| // Internal reference output 4.096v
+						(0 << ADC_SEQ) 	| // Channel sequencer disabled
+						(1 << ADC_RB);	  // Do not read back config
+    adc_read(voutCFG);
+    adc_read(voutCFG);
+
+    // Theoretical mv / LSB = 1000 * ((100+20)/20) * 4.096 / (1 << 16) = 0.375
+    propError =  mv_out - 0.375 * adc_read(0); // Units are mv
+
+    intError += propError; // Units are mv * ms * 7.2, or giving a rate of 7.2e6/(v*s)
+
+    // Integral Error Saturation
+    intError = clamp(intError, 0, 14400000L); // 14.4E6 means saturation at 2[v*s]
+
+    // Proportional Error Saturation, low to reduce overshoot and decrease integral settling time for large steps
+    propError = clamp(propError, -1000, 1000); // Saturation at +/- 1v
+
+    // Calculate PWM output value out of 10000
+    pwmOut = intError / 1440 + propError / 2;
+    pwmOut = clamp(pwmOut, 0, 9999);
+
+    // Set PWM output
+    Chip_SCTPWM_SetDutyCycle(LPC_SCT0, 1, pwmOut);
 }
 
 // Sample timer interrupt
@@ -49,7 +80,7 @@ void daq_init(void){
 
 	// Set up Vout PWM
 	Chip_SCTPWM_Init(LPC_SCT0);
-	Chip_SCTPWM_SetRate(LPC_SCT0, 7200); // 7200Hz
+	Chip_SCTPWM_SetRate(LPC_SCT0, 7200); // 7200Hz, 10000 counts per cycle
 	Chip_SWM_MovablePinAssign(SWM_SCT0_OUT0_O, VOUT_PWM); // Assign PWM to output pin
 	Chip_SCTPWM_SetOutPin(LPC_SCT0, 1, 0); // Set SCT PWM output 1 to SCT pin output 0
 	Chip_SCTPWM_SetDutyCycle(LPC_SCT0, 1, 0); // Set to duty cycle of 0
@@ -57,7 +88,7 @@ void daq_init(void){
 
 	// Create SCT0 Vout PWM interrupt
 	NVIC_EnableIRQ(SCT0_IRQn);
-	NVIC_SetPriority(RITIMER_IRQn, 0x01); // Set to lower priority that sampling
+	NVIC_SetPriority(RITIMER_IRQn, 0x01); // Set to lower priority than sampling
 
 	// Delay 200ms to allow system to stabilize
 	DWT_Delay(200000);
@@ -65,11 +96,18 @@ void daq_init(void){
 
 // Stop acquiring data
 void daq_stop(void){
-	/* Stop RIT interrupt
-	 * Write all buffered data to disk
-	 * Stop Vout interrupt
-	 * Disable Vout using ~SHDN
-	 */
+	// Stop RIT interrupt
+	NVIC_DisableIRQ(RITIMER_IRQn);
+
+	// Stop Vout interrupt
+	NVIC_DisableIRQ(SCT0_IRQn);
+
+	// Disable Vout using ~SHDN
+	Chip_GPIO_SetPinState(LPC_GPIO, 0, VOUT_N_SHDN, false);
+
+	// Write all buffered data to disk
+	// TODO: put code here
+
 }
 
 // Set channel configuration from the config file on the SD card
@@ -80,6 +118,8 @@ void daq_config_from_file(void){
 	 * Set sample_rate
 	 * Set mv_out
 	 */
+
+	//TODO: put code here
 }
 
 // Set channel configuration defaults
