@@ -35,6 +35,14 @@ typedef struct Channel_Config {
 	float v24_LSB_per_volt;	// sensitivity of reading in LSB / volt
 } Channel_Config;
 
+// Configuration data for the entire DAQ
+typedef struct DAQ {
+	Channel_Config channel[3];
+	uint32_t mv_out;		// Output voltage in mv, valid_range = <5000..24000>
+	uint32_t sample_rate;	// Sample rate in Hz, valid range = <1..10000>
+	char user_comment[80];	// User comment to appear at the top of each data file
+} DAQ;
+
 extern uint8_t *rsel_pins;
 
 // Start acquiring data

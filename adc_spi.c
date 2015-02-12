@@ -1,6 +1,6 @@
 #include "adc_spi.h"
 
-int32_t last_conv_time = 0;
+static int32_t last_conv_time = 0;
 
 void adc_spi_setup(void){
 	SPI_CFG_T spiCfg;

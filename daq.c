@@ -1,23 +1,14 @@
 #include "daq.h"
 
-// Output voltage
-uint32_t mv_out; // valid_range = <5000..24000>
+// DAQ configuration data
+static DAQ daq;
 
-// Sample rate
-uint32_t sampleRate; // valid range = <1..10000>
+// Time tracking
+static uint32_t sampleCount; // Count of samples taken in the current recording
+static uint32_t startTime; // Absolute start time in seconds
 
-Channel_Config channel_config[3];
-
-uint32_t sampleCount; // Count of samples taken in the current recording
-
-uint32_t startTime; // Absolute start time in seconds
-
-// Vout PWM interrupt
+// Vout PWM
 void SCT0_IRQHandler(void){
-	/* Run PI control loop
-	 * Set new PWM value
-	 */
-
     static int32_t intError;
     int32_t propError, pwmOut;
 
@@ -32,7 +23,7 @@ void SCT0_IRQHandler(void){
     adc_read(0);
 
     // Theoretical mv / LSB = 1000 * ((100+20)/20) * 4.096 / (1 << 16) = 0.375
-    propError =  mv_out - 0.375 * adc_read(0); // Units are mv
+    propError =  daq.mv_out - 0.375 * adc_read(0); // Units are mv
 
     intError += propError; // Units are mv * ms * 7.2, or giving a rate of 7.2e6/(v*s)
 
@@ -50,17 +41,12 @@ void SCT0_IRQHandler(void){
     Chip_SCTPWM_SetDutyCycle(LPC_SCT0, 1, pwmOut);
 }
 
-// Sample timer interrupt
+// Sample timer
 void RIT_IRQHandler(void){
-	/* Read samples according to config
-	 * Read current time as RTC start time + (sample_interrupt_counter * sample_interval)
-	 * Format samples according to config
-	 * Write samples and time stamp to disk buffer
-	 */
 	uint32_t i, j;
 	uint16_t rawVal[3];
 
-	char sampleStr[80]; // 9999.9999s, 1.23456E+1[units ], 1.23456E+1[units ], 1.23456E+1[units ]
+	char sampleStr[80]; // Ex. 9999.9999, 1.23456E+1, 1.23456E+1, 1.23456E+1
 	uint8_t sampleStr_size = 0;
 
 	float scaledVal;
@@ -68,7 +54,7 @@ void RIT_IRQHandler(void){
 	uint32_t seconds;
 	uint64_t microseconds;
 
-	if(sampleRate > 1000){
+	if(daq.sample_rate > 1000){
 		// Set ADC config
 		uint16_t sampleCFG = (1 << ADC_CFG ) | // Overwrite config
 							 (6 << ADC_INCC) | // Unipolar, referenced to COM
@@ -88,7 +74,7 @@ void RIT_IRQHandler(void){
 	} else { // Average a bunch of samples for each channel when recording at slow rates for better noise rejection
 		// Read all enabled channels
 		for(i=0;i<3;i++){
-			if(channel_config[i].enable){
+			if(daq.channel[i].enable){
 				// Set ADC config
 				uint16_t sampleCFG = (1 << ADC_CFG ) | // Overwrite config
 									 (6 << ADC_INCC) | // Unipolar, referenced to COM
@@ -100,7 +86,7 @@ void RIT_IRQHandler(void){
 				adc_read(sampleCFG);
 				adc_read(0); // Buffering read, next read returns sample from channel 0
 
-				uint16_t count = 10000/sampleRate;
+				uint16_t count = 10000/daq.sample_rate;
 				uint32_t sum = 0;
 				for(j=0;j<count;j++){
 					sum += adc_read(0);
@@ -111,26 +97,29 @@ void RIT_IRQHandler(void){
 	}
 
 	// Read current time with microsecond precision
-	microseconds = ((uint64_t)sampleCount * 1000000 ) / sampleRate;
+	microseconds = ((uint64_t)sampleCount * 1000000 ) / daq.sample_rate;
 	seconds = startTime + microseconds / 1000000;
 	microseconds = microseconds % 1000000;
 
 	// Format time in output string
-	sampleStr_size += sprintf(sampleStr+sampleStr_size, "\n%u.%06us", seconds, microseconds);
+	sampleStr_size += sprintf(sampleStr+sampleStr_size, "\n%u.%06u", seconds, microseconds);
 
 	// Format each sample into the output string
 	for(i=0;i<3;i++){
-		if(channel_config[i].enable){ // Only print enabled channels
+		if(daq.channel[i].enable){ // Only print enabled channels
 
-			// Calculate value scaled to units
-			if(channel_config[i].range == V5){
-				scaledVal = channel_config[i].units_per_volt * (rawVal[i] - channel_config[i].v5_zero_offset) / channel_config[i].v5_LSB_per_volt;
+			// Calculate value scaled to volts
+			if(daq.channel[i].range == V5){
+				scaledVal = (rawVal[i] - daq.channel[i].v5_zero_offset) / daq.channel[i].v5_LSB_per_volt;
 			} else {
-				scaledVal = channel_config[i].units_per_volt * (rawVal[i] - channel_config[i].v24_zero_offset) / channel_config[i].v24_LSB_per_volt;
+				scaledVal = (rawVal[i] - daq.channel[i].v24_zero_offset) / daq.channel[i].v24_LSB_per_volt;
 			}
 
+			// Scale volts to [units]
+			scaledVal *= daq.channel[i].units_per_volt;
+
 			// Format and append sample string to output string
-			sampleStr_size += sprintf(sampleStr+sampleStr_size, ", %.5E%s", scaledVal, channel_config[i].unit_name);
+			sampleStr_size += sprintf(sampleStr+sampleStr_size, ", %.5E", scaledVal);
 		}
 	}
 
@@ -138,22 +127,27 @@ void RIT_IRQHandler(void){
 	putLineUART(sampleStr);
 #endif
 
-	// TODO: actually write data to file buffer
+	// TODO: write string to file buffer
 }
 
 // Start acquiring data
 void daq_init(void){
 	int i;
+	char headerStr[80];
+	uint8_t headerStr_size = 0;
 
 	// Read config
 	daq_config_default();
+
+	// Limit config values to valid values
+	daq_config_check();
 
 	// Set up ADC
 	adc_spi_setup();
 
 	// Set up channel ranges in hardware mux
 	for(i=0;i<3;i++){
-		Chip_GPIO_SetPinState(LPC_GPIO, 0, rsel_pins[i], channel_config[i].range);
+		Chip_GPIO_SetPinState(LPC_GPIO, 0, rsel_pins[i], daq.channel[i].range);
 	}
 
 	// Enable Vout using ~SHDN
@@ -174,6 +168,25 @@ void daq_init(void){
 	// Delay 200ms to allow system to stabilize
 	DWT_Delay(200000);
 
+	// Output data header
+#ifdef DEBUG
+	putLineUART(daq.user_comment);
+#endif
+	// TODO: write string to file buffer
+
+	headerStr_size += sprintf(headerStr+headerStr_size, "\nseconds");
+
+	for(i=0;i<3;i++){
+		if(daq.channel[i].enable){ // Only print enabled channels
+			headerStr_size += sprintf(headerStr+headerStr_size, ", %s", daq.channel[i].unit_name);
+		}
+	}
+
+#ifdef DEBUG
+	putLineUART(headerStr);
+#endif
+	// TODO: write string to file buffer
+
 	// 0 the sample count
 	sampleCount = 0;
 
@@ -182,7 +195,7 @@ void daq_init(void){
 
 	// Set up sampling interrupt using RIT
 	Chip_RIT_Init(LPC_RITIMER);
-	Chip_RIT_SetTimerIntervalHz(LPC_RITIMER, sampleRate);
+	Chip_RIT_SetTimerIntervalHz(LPC_RITIMER, daq.sample_rate);
 	Chip_RIT_Enable(LPC_RITIMER);
 
 	NVIC_EnableIRQ(RITIMER_IRQn);
@@ -204,6 +217,27 @@ void daq_stop(void){
 
 }
 
+// Limit configuration values to valid ranges
+void daq_config_check(void){
+	daq.sample_rate = clamp(daq.sample_rate, 1, 10000);
+
+	// Force sample rate to be in the set [1,2,5]*10^k
+	uint32_t mag = 1;
+	while(mag < daq.sample_rate){
+		if(daq.sample_rate < mag * 2){
+			daq.sample_rate = mag * 2;
+		}else if(daq.sample_rate < mag * 5){
+			daq.sample_rate = mag * 5;
+		}else if(daq.sample_rate < mag * 10){
+			daq.sample_rate = mag * 10;
+		}
+		mag *= 10;
+	}
+
+	// Limit output voltage to the range 5-24v
+	daq.mv_out = clamp(daq.mv_out, 5000, 24000);
+}
+
 // Set channel configuration from the config file on the SD card
 void daq_config_from_file(void){
 	/* Read SD card config file
@@ -213,7 +247,7 @@ void daq_config_from_file(void){
 	 * Set mv_out
 	 */
 
-	//TODO: read config from sd card
+	//TODO: read daq config from sd card
 }
 
 // Set channel configuration defaults
@@ -222,20 +256,23 @@ void daq_config_default(void){
 
 	// Channel_Config defaults
 	for(i=0;i<3;i++){
-		channel_config[i].enable = true;			// enable channel
-		channel_config[i].range = V5;				// 0-5v input range
-		channel_config[i].units_per_volt = 1.0;		// output in volts
-		strcpy(channel_config[i].unit_name, "V");	// name of channel units
+		daq.channel[i].enable = true;				// enable channel
+		daq.channel[i].range = V5;					// 0-5v input range
+		daq.channel[i].units_per_volt = 1.0;		// output in volts
+		strcpy(daq.channel[i].unit_name, "Volts");	// name of channel units
 
-		channel_config[i].v5_zero_offset = 0.0;			// theoretical value of raw 16-bit sample for 0 input voltage
-		channel_config[i].v5_LSB_per_volt = 12812.749;	// theoretical sensitivity of reading in LSB / volt = (1 << 16) / (4.096 * ( (402+100) / 402 ))
-		channel_config[i].v24_zero_offset = 32511.134;	// theoretical value of raw 16-bit sample for 0 input voltage = (1 << 16) * ( (1/(1/100+1/402+1/21)) / (1/(1/100+1/402+1/21) + 16.9) )
-		channel_config[i].v24_LSB_per_volt = 1341.402;	// theoretical sensitivity of reading in LSB / volt = ((1 << 16)/4.096) * (1/(1/100+1/402+1/21+1/16.9)) / 100
+		daq.channel[i].v5_zero_offset = 0.0;		// theoretical value of raw 16-bit sample for 0 input voltage
+		daq.channel[i].v5_LSB_per_volt = 12812.749;	// theoretical sensitivity of reading in LSB / volt = (1 << 16) / (4.096 * ( (402+100) / 402 ))
+		daq.channel[i].v24_zero_offset = 32511.134;	// theoretical value of raw 16-bit sample for 0 input voltage = (1 << 16) * ( (1/(1/100+1/402+1/21)) / (1/(1/100+1/402+1/21) + 16.9) )
+		daq.channel[i].v24_LSB_per_volt = 1341.402;	// theoretical sensitivity of reading in LSB / volt = ((1 << 16)/4.096) * (1/(1/100+1/402+1/21+1/16.9)) / 100
 	}
 
 	// Sample rate 10Hz
-	sampleRate = 10;
+	daq.sample_rate = 10;
 
 	// Vout = 5v
-	mv_out = 5000;
+	daq.mv_out = 5000;
+
+	// User comment string
+	strcpy(daq.user_comment, "User header comment");
 }

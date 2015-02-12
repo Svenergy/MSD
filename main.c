@@ -214,14 +214,11 @@ int main(void) {
 
 	uint32_t sysTickRate;
 
-	// Set up debug UART and GPIO
 	Board_Init();
 
 #ifdef DEBUG
 	// Set up UART for debug
 	init_uart(115200);
-
-	// Send Startup debug string
 	putLineUART("STARTUP\n");
 #endif
 
@@ -233,7 +230,7 @@ int main(void) {
 	sysTickRate = Chip_Clock_GetSysTickClockRate();
 	SysTick_Config(sysTickRate / TICKRATE_HZ1);
 
-	// Set up clocking used by SD lib
+	// Set up clocking for SD lib
 	SystemCoreClockUpdate();
 	DWT_Init();
 
@@ -241,7 +238,7 @@ int main(void) {
 	Chip_RTC_Init(&RTC);
 	Chip_RTC_Enable(&RTC);
 
-	// Initialize sub-systems
+	// Initialize push button
 	pb_init(TICKRATE_HZ1);
 
 	// Set SD state out to force card init in sysTick loop
