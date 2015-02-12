@@ -15,11 +15,6 @@
 
 #include <stdint.h>
 
-#define PIN_CLK 18
-#define PIN_CS 11
-#define PIN_MOSI 10
-#define PIN_MISO 9
-
 #define SD_BLOCKSIZE 512
 #define SD_BLOCKSIZE_NBITS 9
 
@@ -205,10 +200,10 @@ typedef struct
 } SD_CardInfo;
 
 SD_ERROR init_sd_spi(SD_CardInfo *cardinfo);
-uint8_t sd_read_block (uint32_t blockaddr,uint8_t *data);
-uint8_t sd_read_multiple_blocks (uint32_t blockaddr, uint32_t blockcount, uint8_t *data);
-uint8_t sd_write_block (uint32_t blockaddr,uint8_t *data);
-uint8_t sd_write_multiple_blocks (uint32_t blockaddr, uint32_t blockcount, uint8_t *data);
+uint8_t sd_read_block(uint32_t blockaddr,uint8_t *data);
+uint8_t sd_read_multiple_blocks(uint32_t blockaddr, uint32_t blockcount, uint8_t *data);
+uint8_t sd_write_block(uint32_t blockaddr,uint8_t *data);
+uint8_t sd_write_multiple_blocks(uint32_t blockaddr, uint32_t blockcount, uint8_t *data);
 SD_ERROR sd_read_cid(SD_CID *sd_cid,CARD_TYPE ct);
 SD_ERROR sd_read_csd(SD_CSD *sd_csd,CARD_TYPE ct);
 

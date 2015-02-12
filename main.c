@@ -249,6 +249,10 @@ int main(void) {
 	sd_state = SD_OUT;
 	Board_LED_Color(LED_CYAN);
 
+	// Turn on SD card power
+	Chip_GPIO_SetPinDIROutput(LPC_GPIO, 0, SD_POWER);
+	Chip_GPIO_SetPinState(LPC_GPIO, 0, SD_POWER, 0);
+
 	// Idle and run systick loop until triggered or plugged in as a USB device
 	system_state = STATE_IDLE;
 

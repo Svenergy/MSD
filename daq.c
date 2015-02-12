@@ -53,6 +53,14 @@ void RIT_IRQHandler(void){
 	 * Format samples according to config
 	 * Write samples and time stamp to disk buffer
 	 */
+
+	// Read samples according to config
+
+	// Read current time as RTC start time + (sample_interrupt_counter * sample_interval)
+
+	// Format Samples according to config
+
+	// Write samples and time stamp to disk buffer
 }
 
 // Start acquiring data

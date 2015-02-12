@@ -65,16 +65,16 @@ STATIC const PINMUX_GRP_T ioconSetup[] = {
 	{0, RSEL3, (IOCON_MODE_PULLUP | IOCON_DIGMODE_EN)},			/* PIO0_28 */
 
 	/* ADC SPI */
+	{0, ADC_SCK,  (IOCON_MODE_PULLDOWN | IOCON_DIGMODE_EN)},	/* PIO0_1 */
 	{0, ADC_SS,	  (IOCON_MODE_PULLUP | IOCON_DIGMODE_EN)},		/* PIO0_29 */
 	{0, ADC_MOSI, (IOCON_MODE_PULLUP | IOCON_DIGMODE_EN)},		/* PIO0_0 */
 	{0, ADC_MISO, (IOCON_MODE_PULLUP | IOCON_DIGMODE_EN)},		/* PIO0_2 */
-	{0, ADC_SCK,  (IOCON_MODE_PULLUP | IOCON_DIGMODE_EN)},		/* PIO0_1 */
 
 	/* SD SPI and control */
 	{0, CARD_DETECT, (IOCON_MODE_PULLUP | IOCON_DIGMODE_EN)},	/* PIO0_12 */
 	{0, SD_POWER,    (IOCON_MODE_PULLUP | IOCON_DIGMODE_EN)},	/* PIO0_8 */
 
-	{0, SD_SPI_CLK,  (IOCON_MODE_INACT | IOCON_DIGMODE_EN)},	/* PIO0_18 */
+	{0, SD_SPI_CLK,  (IOCON_MODE_PULLDOWN | IOCON_DIGMODE_EN)},	/* PIO0_18 */
 	{0, SD_SPI_CS,   (IOCON_MODE_INACT | IOCON_DIGMODE_EN)},	/* PIO0_11 */
 	{0, SD_SPI_MOSI, (IOCON_MODE_INACT | IOCON_DIGMODE_EN)},	/* PIO0_10 */
 	{0, SD_SPI_MISO, (IOCON_MODE_INACT | IOCON_DIGMODE_EN)},	/* PIO0_9 */
@@ -94,12 +94,24 @@ typedef struct {
    state are in this table. */
 STATIC const SWM_GRP_T swmSetup[] = {
 	/* USB related */
-	{(uint16_t) SWM_USB_VBUS_I, 0, VBUS},		/* PIO0_16-ISP_1-AIN_CTRL */
+	{(uint16_t) SWM_USB_VBUS_I, 0, VBUS},				/* PIO0_16-ISP_1 */
+
+	/* SD SPI */
+	{(uint16_t) SWM_SPI0_SCK_IO, 0, SD_SPI_CLK},		/* PIO0_18 */
+	{(uint16_t) SWM_SPI0_SSELSN_0_IO, 0, SD_SPI_CS},	/* PIO0_11 */
+	{(uint16_t) SWM_SPI0_MOSI_IO, 0, SD_SPI_MOSI},		/* PIO0_10 */
+	{(uint16_t) SWM_SPI0_MISO_IO, 0, SD_SPI_MISO},		/* PIO0_9 */
+
+	/* ADC SPI */
+	{(uint16_t) SWM_SPI1_SCK_IO, 0, ADC_CLK},			/* PIO0_1 */
+	{(uint16_t) SWM_SPI1_SSELSN_0_IO, 0, ADC_SS},		/* PIO0_29 */
+	{(uint16_t) SWM_SPI1_MOSI_IO, 0, ADC_MOSI},			/* PIO0_0 */
+	{(uint16_t) SWM_SPI1_MISO_IO, 0, ADC_MISO},			/* PIO0_2 */
 
 	/* UART */
 #ifdef DEBUG
-	{(uint16_t) SWM_UART0_RXD_I, 0, UART0_RX},		/* PIO0_27-UART0_RX */
-	{(uint16_t) SWM_UART0_TXD_O, 0, UART0_TX},		/* PIO0_26-UART0_TX */
+	{(uint16_t) SWM_UART0_RXD_I, 0, UART0_RX},			/* PIO0_27-UART0_RX */
+	{(uint16_t) SWM_UART0_TXD_O, 0, UART0_TX},			/* PIO0_26-UART0_TX */
 #endif
 };
 

@@ -16,24 +16,6 @@ extern SD_CardInfo cardinfo;
 
 uint8_t response[5];
 
-static void Init_SPI_PinMux(void) {
-
-  Chip_IOCON_PinMuxSet(LPC_IOCON, 0, PIN_CLK, (IOCON_MODE_INACT | IOCON_DIGMODE_EN));
-  Chip_IOCON_PinMuxSet(LPC_IOCON, 0, PIN_MOSI, (IOCON_MODE_INACT | IOCON_DIGMODE_EN));
-  Chip_IOCON_PinMuxSet(LPC_IOCON, 0, PIN_MISO, (IOCON_MODE_INACT | IOCON_DIGMODE_EN));
-  Chip_IOCON_PinMuxSet(LPC_IOCON, 0, PIN_CS, (IOCON_MODE_INACT | IOCON_DIGMODE_EN));
-
-  Chip_SWM_MovablePinAssign(SWM_SPI0_SCK_IO, PIN_CLK);
-  Chip_SWM_MovablePinAssign(SWM_SPI0_MOSI_IO, PIN_MOSI);
-  Chip_SWM_MovablePinAssign(SWM_SPI0_MISO_IO, PIN_MISO);
-  Chip_SWM_MovablePinAssign(SWM_SPI0_SSELSN_0_IO, PIN_CS);
-
-  // Turn on SD card power
-  Chip_GPIO_SetPinDIROutput(LPC_GPIO, 0, SD_POWER);
-  Chip_GPIO_SetPinState(LPC_GPIO, 0, SD_POWER, 0);
-
-}
-
 static void setupSpiMaster(uint8_t clkdiv) {
 
   SPI_CFG_T spiCfg;
@@ -177,7 +159,6 @@ SD_ERROR init_sd_spi(SD_CardInfo *cardinfo) {
   SD_ERROR tmp;
   
   GenerateCRCTable();
-  Init_SPI_PinMux();
   
   // Initialization at slow speed
   setupSpiMaster(SystemCoreClock/400000-1);// 400Khz
