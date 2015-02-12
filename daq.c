@@ -123,9 +123,9 @@ void RIT_IRQHandler(void){
 		}
 	}
 
-#ifdef DEBUG
-	putLineUART(sampleStr);
-#endif
+	#ifdef DEBUG
+		putLineUART(sampleStr);
+	#endif
 
 	// TODO: write string to file buffer
 }
@@ -133,8 +133,6 @@ void RIT_IRQHandler(void){
 // Start acquiring data
 void daq_init(void){
 	int i;
-	char headerStr[80];
-	uint8_t headerStr_size = 0;
 
 	// Read config
 	daq_config_default();
@@ -168,24 +166,8 @@ void daq_init(void){
 	// Delay 200ms to allow system to stabilize
 	DWT_Delay(200000);
 
-	// Output data header
-#ifdef DEBUG
-	putLineUART(daq.user_comment);
-#endif
-	// TODO: write string to file buffer
-
-	headerStr_size += sprintf(headerStr+headerStr_size, "\nseconds");
-
-	for(i=0;i<3;i++){
-		if(daq.channel[i].enable){ // Only print enabled channels
-			headerStr_size += sprintf(headerStr+headerStr_size, ", %s", daq.channel[i].unit_name);
-		}
-	}
-
-#ifdef DEBUG
-	putLineUART(headerStr);
-#endif
-	// TODO: write string to file buffer
+	// Write data file header
+	daq_header();
 
 	// 0 the sample count
 	sampleCount = 0;
@@ -200,6 +182,46 @@ void daq_init(void){
 
 	NVIC_EnableIRQ(RITIMER_IRQn);
 	NVIC_SetPriority(RITIMER_IRQn, 0x00); // Set to highest priority to ensure sample timing accuracy
+}
+
+// Write data file header
+void daq_header(void){
+	int i;
+	char headerStr[80];
+	uint8_t headerStr_size = 0;
+
+	/* User comment */
+	// Ex. "User header comment"
+	#ifdef DEBUG
+		putLineUART(daq.user_comment);
+	#endif
+	// TODO: write string to file buffer
+
+	/* Channel labels */
+	// Ex. "time, ch1, ch2, ch3"
+	headerStr_size = sprintf(headerStr, "\ntime");
+	for(i=0;i<3;i++){
+		if(daq.channel[i].enable){ // Only print enabled channels
+			headerStr_size += sprintf(headerStr+headerStr_size, ", ch%d", i+1);
+		}
+	}
+	#ifdef DEBUG
+		putLineUART(headerStr);
+	#endif
+	// TODO: write string to file buffer
+
+	/* Units */
+	// Ex. "seconds, volts, volts, volts"
+	headerStr_size = sprintf(headerStr, "\nseconds");
+	for(i=0;i<3;i++){
+		if(daq.channel[i].enable){ // Only print enabled channels
+			headerStr_size += sprintf(headerStr+headerStr_size, ", %s", daq.channel[i].unit_name);
+		}
+	}
+	#ifdef DEBUG
+		putLineUART(headerStr);
+	#endif
+	// TODO: write string to file buffer
 }
 
 // Stop acquiring data

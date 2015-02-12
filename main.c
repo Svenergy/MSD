@@ -154,10 +154,10 @@ void shutDown(void){
 		daq_stop();
 	}
 
-#ifdef DEBUG
-	// Send Shutdown debug string
-	putLineUART("SHUTDOWN\n");
-#endif
+	#ifdef DEBUG
+		// Send Shutdown debug string
+		putLineUART("SHUTDOWN\n");
+	#endif
 
 	// Wait for UART to finish transmission
 	while ( !(Chip_UART_GetStatus(LPC_USART0)&UART_STAT_TXIDLE) ){};
@@ -216,11 +216,11 @@ int main(void) {
 
 	Board_Init();
 
-#ifdef DEBUG
-	// Set up UART for debug
-	init_uart(115200);
-	putLineUART("STARTUP\n");
-#endif
+	#ifdef DEBUG
+		// Set up UART for debug
+		init_uart(115200);
+		putLineUART("STARTUP\n");
+	#endif
 
 	// Set up ADC for reading battery voltage
 	ADC_setup();

@@ -48,8 +48,14 @@ extern uint8_t *rsel_pins;
 // Start acquiring data
 void daq_init(void);
 
+// Write data file header
+void daq_header(void);
+
 // Stop acquiring data
 void daq_stop(void);
+
+// Limit configuration values to valid ranges
+void daq_config_check(void);
 
 // Set channel configuration from the config file on the SD card
 void daq_config_from_file(void);
