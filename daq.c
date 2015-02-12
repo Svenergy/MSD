@@ -4,9 +4,13 @@
 uint32_t mv_out; // valid_range = <5000..24000>
 
 // Sample rate
-uint32_t sample_rate; // valid range = <1..10000>
+uint32_t sampleRate; // valid range = <1..10000>
 
 Channel_Config channel_config[3];
+
+uint32_t sampleCount; // Count of samples taken in the current recording
+
+uint32_t startTime; // Absolute start time in seconds
 
 // Vout PWM interrupt
 void SCT0_IRQHandler(void){
@@ -53,14 +57,88 @@ void RIT_IRQHandler(void){
 	 * Format samples according to config
 	 * Write samples and time stamp to disk buffer
 	 */
+	uint32_t i, j;
+	uint16_t rawVal[3];
 
-	// Read samples according to config
+	char sampleStr[80]; // 9999.9999s, 1.23456E+1[units ], 1.23456E+1[units ], 1.23456E+1[units ]
+	uint8_t sampleStr_size = 0;
 
-	// Read current time as RTC start time + (sample_interrupt_counter * sample_interval)
+	float scaledVal;
 
-	// Format Samples according to config
+	uint32_t seconds;
+	uint64_t microseconds;
 
-	// Write samples and time stamp to disk buffer
+	if(sampleRate > 1000){
+		// Set ADC config
+		uint16_t sampleCFG = (1 << ADC_CFG ) | // Overwrite config
+							 (6 << ADC_INCC) | // Unipolar, referenced to COM
+							 (2 << ADC_IN)   | // Sequence channels 0,1,2
+							 (1 << ADC_BW)   | // Full bandwidth
+							 (1 << ADC_REF)  | // Internal reference output 4.096v
+							 (3 << ADC_SEQ)  | // Channel sequencer enabled
+							 (1 << ADC_RB);    // Do not read back config
+		adc_read(sampleCFG);
+		adc_read(0); // Buffering read, next read returns sample from channel 0
+
+		// Read all channels
+		for(i=0;i<3;i++){
+			rawVal[i] = adc_read(0);
+		}
+
+	} else { // Average a bunch of samples for each channel when recording at slow rates for better noise rejection
+		// Read all enabled channels
+		for(i=0;i<3;i++){
+			if(channel_config[i].enable){
+				// Set ADC config
+				uint16_t sampleCFG = (1 << ADC_CFG ) | // Overwrite config
+									 (6 << ADC_INCC) | // Unipolar, referenced to COM
+									 (i << ADC_IN)   | // Read channel i
+									 (1 << ADC_BW)   | // Full bandwidth
+									 (1 << ADC_REF)  | // Internal reference output 4.096v
+									 (0 << ADC_SEQ)  | // Channel sequencer disabled
+									 (1 << ADC_RB);    // Do not read back config
+				adc_read(sampleCFG);
+				adc_read(0); // Buffering read, next read returns sample from channel 0
+
+				uint16_t count = 10000/sampleRate;
+				uint32_t sum = 0;
+				for(j=0;j<count;j++){
+					sum += adc_read(0);
+				}
+				rawVal[i] = sum / count;
+			}
+		}
+	}
+
+	// Read current time with microsecond precision
+	microseconds = ((uint64_t)sampleCount * 1000000 ) / sampleRate;
+	seconds = startTime + microseconds / 1000000;
+	microseconds = microseconds % 1000000;
+
+	// Format time in output string
+	sampleStr_size += sprintf(sampleStr+sampleStr_size, "\n%u.%06us", seconds, microseconds);
+
+	// Format each sample into the output string
+	for(i=0;i<3;i++){
+		if(channel_config[i].enable){ // Only print enabled channels
+
+			// Calculate value scaled to units
+			if(channel_config[i].range == V5){
+				scaledVal = channel_config[i].units_per_volt * (rawVal[i] - channel_config[i].v5_zero_offset) / channel_config[i].v5_LSB_per_volt;
+			} else {
+				scaledVal = channel_config[i].units_per_volt * (rawVal[i] - channel_config[i].v24_zero_offset) / channel_config[i].v24_LSB_per_volt;
+			}
+
+			// Format and append sample string to output string
+			sampleStr_size += sprintf(sampleStr+sampleStr_size, ", %.5E%s", scaledVal, channel_config[i].unit_name);
+		}
+	}
+
+#ifdef DEBUG
+	putLineUART(sampleStr);
+#endif
+
+	// TODO: actually write data to file buffer
 }
 
 // Start acquiring data
@@ -96,9 +174,15 @@ void daq_init(void){
 	// Delay 200ms to allow system to stabilize
 	DWT_Delay(200000);
 
+	// 0 the sample count
+	sampleCount = 0;
+
+	// TODO: get actual start time from RTC
+	startTime = 0;
+
 	// Set up sampling interrupt using RIT
 	Chip_RIT_Init(LPC_RITIMER);
-	Chip_RIT_SetTimerIntervalHz(LPC_RITIMER, sample_rate);
+	Chip_RIT_SetTimerIntervalHz(LPC_RITIMER, sampleRate);
 	Chip_RIT_Enable(LPC_RITIMER);
 
 	NVIC_EnableIRQ(RITIMER_IRQn);
@@ -116,8 +200,7 @@ void daq_stop(void){
 	// Disable Vout using ~SHDN
 	Chip_GPIO_SetPinState(LPC_GPIO, 0, VOUT_N_SHDN, false);
 
-	// Write all buffered data to disk
-	// TODO: put code here
+	// TODO: Write all buffered data to disk
 
 }
 
@@ -130,7 +213,7 @@ void daq_config_from_file(void){
 	 * Set mv_out
 	 */
 
-	//TODO: put code here
+	//TODO: read config from sd card
 }
 
 // Set channel configuration defaults
@@ -151,7 +234,7 @@ void daq_config_default(void){
 	}
 
 	// Sample rate 10Hz
-	sample_rate = 10;
+	sampleRate = 10;
 
 	// Vout = 5v
 	mv_out = 5000;

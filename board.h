@@ -2,7 +2,10 @@
 #define __BOARD_H_
 
 #include "chip.h"
-/* board_api.h is included at the bottom of this file after DEBUG setup */
+
+#ifdef DEBUG
+#include "uart.h"
+#endif
 
 /* Set up board led colors */
 typedef enum {
@@ -64,5 +67,4 @@ typedef enum {
 #define VBUS 16
 
 #include "board_api.h"
-
 #endif /* __BOARD_H_ */

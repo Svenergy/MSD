@@ -22,7 +22,6 @@ BLUE = error
 #include "board.h"
 #include "daq.h"
 #include "delay.h"
-#include "uart.h"
 #include "msc_main.h"
 #include "sd_spi.h"
 #include "push_button.h"
