@@ -25,7 +25,7 @@ void SCT0_IRQHandler(void){
 						(0 << ADC_SEQ) 	| // Channel sequencer disabled
 						(1 << ADC_RB);	  // Do not read back config
     adc_read(voutCFG);
-    adc_read(voutCFG);
+    adc_read(0);
 
     // Theoretical mv / LSB = 1000 * ((100+20)/20) * 4.096 / (1 << 16) = 0.375
     propError =  mv_out - 0.375 * adc_read(0); // Units are mv
@@ -70,13 +70,8 @@ void daq_init(void){
 	// Read config
 	daq_config_default();
 
-	// Set up sampling interrupt using RIT
-	Chip_RIT_Init(LPC_RITIMER);
-	Chip_RIT_SetTimerIntervalHz(LPC_RITIMER, sample_rate);
-	Chip_RIT_Enable(LPC_RITIMER);
-
-	NVIC_EnableIRQ(RITIMER_IRQn);
-	NVIC_SetPriority(RITIMER_IRQn, 0x00); // Set to highest priority to ensure sample timing accuracy
+	// Set up ADC
+	adc_spi_setup();
 
 	// Set up channel ranges in hardware mux
 	for(i=0;i<3;i++){
@@ -96,10 +91,18 @@ void daq_init(void){
 
 	// Create SCT0 Vout PWM interrupt
 	NVIC_EnableIRQ(SCT0_IRQn);
-	NVIC_SetPriority(RITIMER_IRQn, 0x01); // Set to lower priority than sampling
+	NVIC_SetPriority(SCT0_IRQn, 0x01); // Set to lower priority than sampling
 
 	// Delay 200ms to allow system to stabilize
 	DWT_Delay(200000);
+
+	// Set up sampling interrupt using RIT
+	Chip_RIT_Init(LPC_RITIMER);
+	Chip_RIT_SetTimerIntervalHz(LPC_RITIMER, sample_rate);
+	Chip_RIT_Enable(LPC_RITIMER);
+
+	NVIC_EnableIRQ(RITIMER_IRQn);
+	NVIC_SetPriority(RITIMER_IRQn, 0x00); // Set to highest priority to ensure sample timing accuracy
 }
 
 // Stop acquiring data

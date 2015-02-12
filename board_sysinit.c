@@ -103,7 +103,7 @@ STATIC const SWM_GRP_T swmSetup[] = {
 	{(uint16_t) SWM_SPI0_MISO_IO, 0, SD_SPI_MISO},		/* PIO0_9 */
 
 	/* ADC SPI */
-	{(uint16_t) SWM_SPI1_SCK_IO, 0, ADC_CLK},			/* PIO0_1 */
+	{(uint16_t) SWM_SPI1_SCK_IO, 0, ADC_SCK},			/* PIO0_1 */
 	{(uint16_t) SWM_SPI1_SSELSN_0_IO, 0, ADC_SS},		/* PIO0_29 */
 	{(uint16_t) SWM_SPI1_MOSI_IO, 0, ADC_MOSI},			/* PIO0_0 */
 	{(uint16_t) SWM_SPI1_MISO_IO, 0, ADC_MISO},			/* PIO0_2 */

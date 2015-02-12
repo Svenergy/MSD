@@ -12,6 +12,7 @@
 #define __ADC_SPI_
 
 #include "board.h"
+#include "delay.h"
 
 //CFG register bit definitions
 typedef enum {
@@ -23,6 +24,8 @@ typedef enum {
 	ADC_INCC = 12, // Input channel config
 	ADC_CFG	 = 15, // 0 = keep config, 1 = overwrite config
 };
+
+void adc_spi_setup(void);
 
 uint16_t adc_read(uint16_t config);
 
