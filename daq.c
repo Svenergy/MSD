@@ -175,11 +175,14 @@ void daq_init(void){
 	adc_spi_setup();
 
 	// Set up channel ranges in hardware mux
+#ifndef DEBUG
 	for(i=0;i<3;i++){ // This Kills the UART
-		// Chip_GPIO_SetPinState(LPC_GPIO, 0, rsel_pins[i], daq.channel[i].range);
+		Chip_GPIO_SetPinState(LPC_GPIO, 0, rsel_pins[i], daq.channel[i].range);
 	}
+#endif
 
 	// Enable Vout using ~SHDN
+	Chip_GPIO_SetPinDIROutput(LPC_GPIO, 0, VOUT_N_SHDN);
 	Chip_GPIO_SetPinState(LPC_GPIO, 0, VOUT_N_SHDN, true);
 
 	// Set up Vout PWM
