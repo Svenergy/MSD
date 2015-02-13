@@ -8,10 +8,8 @@
 /* the system does not support a real time clock.          */
 /* This is not required in read-only configuration.        */
 
-DWORD get_fattime (void)
+uint32_t get_fattime (void)
 {
-	DWORD res = 0;
-	int count = Chip_RTC_GetCount(&RTC);
-	return res;
+	return  Chip_RTC_GetCount(LPC_RTC);
 }
 

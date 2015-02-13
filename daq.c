@@ -3,12 +3,22 @@
 // DAQ configuration data
 static DAQ daq;
 
+// Output file
+static FIL file;
+
 // Time tracking
 static uint32_t sampleCount; // Count of samples taken in the current recording
 static uint32_t startTime; // Absolute start time in seconds
 
+// flag set by RIT_IRQHandler, accessed by SCT0_IRQHandler
+static volatile bool adcUsed;
+
 // Vout PWM
 void SCT0_IRQHandler(void){
+	/* Clear interrupt */
+	Chip_SCT_ClearEventFlag(LPC_SCT0, SCT_EVT_0);
+
+	adcUsed = true;
     static int32_t intError;
     int32_t propError, pwmOut;
 
@@ -43,10 +53,13 @@ void SCT0_IRQHandler(void){
 
 // Sample timer
 void RIT_IRQHandler(void){
+	/* Clear interrupt */
+	Chip_RIT_ClearIntStatus(LPC_RITIMER);
+
 	uint32_t i, j;
 	uint16_t rawVal[3];
 
-	char sampleStr[80]; // Ex. 9999.9999, 1.23456E+1, 1.23456E+1, 1.23456E+1
+	char sampleStr[80]; // Ex. 9999.999999, 1.23456E+1, 1.23456E+1, 1.23456E+1
 	uint8_t sampleStr_size = 0;
 
 	float scaledVal;
@@ -63,14 +76,16 @@ void RIT_IRQHandler(void){
 							 (1 << ADC_REF)  | // Internal reference output 4.096v
 							 (3 << ADC_SEQ)  | // Channel sequencer enabled
 							 (1 << ADC_RB);    // Do not read back config
-		adc_read(sampleCFG);
-		adc_read(0); // Buffering read, next read returns sample from channel 0
+		do{
+			adcUsed = false;
+			adc_read(sampleCFG);
+			adc_read(0); // Buffering read, next read returns sample from channel 0
 
-		// Read all channels
-		for(i=0;i<3;i++){
-			rawVal[i] = adc_read(0);
-		}
-
+			// Read all channels
+			for(i=0;i<3;i++){
+				rawVal[i] = adc_read(0);
+			}
+		}while(adcUsed == true); // Loop until samples are not interrupted by pwm
 	} else { // Average a bunch of samples for each channel when recording at slow rates for better noise rejection
 		// Read all enabled channels
 		for(i=0;i<3;i++){
@@ -83,13 +98,28 @@ void RIT_IRQHandler(void){
 									 (1 << ADC_REF)  | // Internal reference output 4.096v
 									 (0 << ADC_SEQ)  | // Channel sequencer disabled
 									 (1 << ADC_RB);    // Do not read back config
+				uint16_t count = 10000/daq.sample_rate;
+				uint32_t sum = 0;
+
+				adcUsed = false;
 				adc_read(sampleCFG);
 				adc_read(0); // Buffering read, next read returns sample from channel 0
 
-				uint16_t count = 10000/daq.sample_rate;
-				uint32_t sum = 0;
 				for(j=0;j<count;j++){
-					sum += adc_read(0);
+					uint16_t raw;
+					if(adcUsed){
+						adcUsed = false;
+						adc_read(sampleCFG);
+						adc_read(0);
+					}
+					raw = adc_read(0);
+					while(adcUsed){
+						adcUsed = false;
+						adc_read(sampleCFG);
+						adc_read(0);
+						raw = adc_read(0);
+					}
+					sum += raw;
 				}
 				rawVal[i] = sum / count;
 			}
@@ -102,12 +132,11 @@ void RIT_IRQHandler(void){
 	microseconds = microseconds % 1000000;
 
 	// Format time in output string
-	sampleStr_size += sprintf(sampleStr+sampleStr_size, "\n%u.%06u", seconds, microseconds);
+	sampleStr_size += sprintf(sampleStr+sampleStr_size, "\n%u.%06u", seconds, (uint32_t)microseconds); // sprintf does not work with 64-bit ints
 
 	// Format each sample into the output string
 	for(i=0;i<3;i++){
 		if(daq.channel[i].enable){ // Only print enabled channels
-
 			// Calculate value scaled to volts
 			if(daq.channel[i].range == V5){
 				scaledVal = (rawVal[i] - daq.channel[i].v5_zero_offset) / daq.channel[i].v5_LSB_per_volt;
@@ -122,12 +151,14 @@ void RIT_IRQHandler(void){
 			sampleStr_size += sprintf(sampleStr+sampleStr_size, ", %.5E", scaledVal);
 		}
 	}
-
 	#ifdef DEBUG
 		putLineUART(sampleStr);
 	#endif
+	// Write string to file buffer
+	f_puts(sampleStr, &file);
 
-	// TODO: write string to file buffer
+	// Increment sample counter
+	sampleCount++;
 }
 
 // Start acquiring data
@@ -144,8 +175,8 @@ void daq_init(void){
 	adc_spi_setup();
 
 	// Set up channel ranges in hardware mux
-	for(i=0;i<3;i++){
-		Chip_GPIO_SetPinState(LPC_GPIO, 0, rsel_pins[i], daq.channel[i].range);
+	for(i=0;i<3;i++){ // This Kills the UART
+		// Chip_GPIO_SetPinState(LPC_GPIO, 0, rsel_pins[i], daq.channel[i].range);
 	}
 
 	// Enable Vout using ~SHDN
@@ -160,8 +191,9 @@ void daq_init(void){
 	Chip_SCTPWM_Start(LPC_SCT0); // Start PWM
 
 	// Create SCT0 Vout PWM interrupt
+	Chip_SCT_EnableEventInt(LPC_SCT0, SCT_EVT_0);
 	NVIC_EnableIRQ(SCT0_IRQn);
-	NVIC_SetPriority(SCT0_IRQn, 0x01); // Set to lower priority than sampling
+	NVIC_SetPriority(SCT0_IRQn, 0x00); // Set to higher priority than sampling
 
 	// Delay 200ms to allow system to stabilize
 	DWT_Delay(200000);
@@ -173,7 +205,7 @@ void daq_init(void){
 	sampleCount = 0;
 
 	// TODO: get actual start time from RTC
-	startTime = 0;
+	startTime = Chip_RTC_GetCount(LPC_RTC);
 
 	// Set up sampling interrupt using RIT
 	Chip_RIT_Init(LPC_RITIMER);
@@ -181,7 +213,7 @@ void daq_init(void){
 	Chip_RIT_Enable(LPC_RITIMER);
 
 	NVIC_EnableIRQ(RITIMER_IRQn);
-	NVIC_SetPriority(RITIMER_IRQn, 0x00); // Set to highest priority to ensure sample timing accuracy
+	NVIC_SetPriority(RITIMER_IRQn, 0x01); // Set to second highest priority to ensure sample timing accuracy
 }
 
 // Write data file header
@@ -190,12 +222,17 @@ void daq_header(void){
 	char headerStr[80];
 	uint8_t headerStr_size = 0;
 
+	/* Make the file */
+	f_open(&file,"data.txt",FA_CREATE_ALWAYS | FA_WRITE);
+
 	/* User comment */
 	// Ex. "User header comment"
 	#ifdef DEBUG
+		putLineUART("\n");
 		putLineUART(daq.user_comment);
 	#endif
-	// TODO: write string to file buffer
+	// Write string to file buffer
+	f_puts(daq.user_comment,&file);
 
 	/* Channel labels */
 	// Ex. "time, ch1, ch2, ch3"
@@ -208,7 +245,8 @@ void daq_header(void){
 	#ifdef DEBUG
 		putLineUART(headerStr);
 	#endif
-	// TODO: write string to file buffer
+	// Write string to file buffer
+	f_puts(headerStr, &file);
 
 	/* Units */
 	// Ex. "seconds, volts, volts, volts"
@@ -221,7 +259,8 @@ void daq_header(void){
 	#ifdef DEBUG
 		putLineUART(headerStr);
 	#endif
-	// TODO: write string to file buffer
+	// Write string to file buffer
+	f_puts(headerStr, &file);
 }
 
 // Stop acquiring data
@@ -235,8 +274,8 @@ void daq_stop(void){
 	// Disable Vout using ~SHDN
 	Chip_GPIO_SetPinState(LPC_GPIO, 0, VOUT_N_SHDN, false);
 
-	// TODO: Write all buffered data to disk
-
+	// Write all buffered data to disk
+	f_close(&file);
 }
 
 // Limit configuration values to valid ranges

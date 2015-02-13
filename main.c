@@ -25,7 +25,7 @@ BLUE = error
 #include "msc_main.h"
 #include "sd_spi.h"
 #include "push_button.h"
-#include "fatfstest.h"
+#include "ff.h"
 
 #define TICKRATE_HZ1 (100)	/* 100 ticks per second */
 
@@ -42,18 +42,17 @@ typedef enum {
 	SD_READY,
 } SD_STATE;
 
+FATFS fatfs[_VOLUMES];
+
 SD_STATE sd_state;
 
 SD_CardInfo cardinfo;
-
-LPC_RTC_T RTC;
 
 float read_vBat(int n);
 void shutDown(void);
 void error(void);
 
 void SysTick_Handler(void){
-
 	pb_loop();
 
 	// Read current system state and change state if needed
@@ -154,9 +153,12 @@ void shutDown(void){
 		daq_stop();
 	}
 
+	// Unmount file system
+	f_mount(NULL,"",0);
+
 	#ifdef DEBUG
 		// Send Shutdown debug string
-		putLineUART("SHUTDOWN\n");
+		putLineUART("\nSHUTDOWN");
 	#endif
 
 	// Wait for UART to finish transmission
@@ -219,7 +221,7 @@ int main(void) {
 	#ifdef DEBUG
 		// Set up UART for debug
 		init_uart(115200);
-		putLineUART("STARTUP\n");
+		putLineUART("\nSTARTUP");
 	#endif
 
 	// Set up ADC for reading battery voltage
@@ -234,9 +236,8 @@ int main(void) {
 	SystemCoreClockUpdate();
 	DWT_Init();
 
-	// Initialize RTC
-	Chip_RTC_Init(&RTC);
-	Chip_RTC_Enable(&RTC);
+	// Sets up the FatFS Object
+	f_mount(&fatfs,"",0);
 
 	// Initialize push button
 	pb_init(TICKRATE_HZ1);

@@ -16,7 +16,6 @@ typedef struct {
 	BYTE	sec;	/* 0..59 */
 } DATETIME;
 
-extern LPC_RTC_T RTC;
-DWORD get_fattime (void);
+uint32_t get_fattime (void);
 
 #endif

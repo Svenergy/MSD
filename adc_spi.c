@@ -26,7 +26,7 @@ void adc_spi_setup(void){
 
 static uint16_t SPI_Transfer(uint16_t data) {
   while(~LPC_SPI1->STAT & SPI_STAT_TXRDY){};
-  LPC_SPI0->TXDATCTL = SPI_TXDATCTL_LEN(16-1) | SPI_TXDATCTL_EOT | SPI_TXCTL_ASSERT_SSEL0 | data;
+  LPC_SPI1->TXDATCTL = SPI_TXDATCTL_LEN(16-1) | SPI_TXDATCTL_EOT | SPI_TXCTL_ASSERT_SSEL0 | data;
   while(~LPC_SPI1->STAT & SPI_STAT_RXRDY){};
   return LPC_SPI1->RXDAT;
 }
