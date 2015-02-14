@@ -146,12 +146,13 @@ void error(void){
 
 void shutDown(void){
 	// Shut down procedures
-	Board_LED_Color(LED_OFF);
-
-	// Safely stop data acquisition if needed
 	if(system_state == STATE_DAQ){
 		daq_stop();
+	} else if(system_state == STATE_MSC){
+		msc_stop();
 	}
+
+	Board_LED_Color(LED_OFF);
 
 	// Unmount file system
 	f_mount(NULL,"",0);
