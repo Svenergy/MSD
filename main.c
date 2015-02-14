@@ -11,7 +11,7 @@ N/A = off
 RED = recording data
 GREEN = power on idle
 YELLOW = mass storage mode idle
-PURPLE = mass storage mode data read/write
+PURPLE = mass storage mode data read/write, DAQ initializing
 CYAN = SD card not present
 BLUE = error
 
@@ -69,6 +69,7 @@ void SysTick_Handler(void){
 		}
 		// If user has short pressed PB and SD card is ready, initiate acquisition
 		if (pb_shortPress() && sd_state == SD_READY){
+			Board_LED_Color(LED_PURPLE);
 			daq_init();
 			Board_LED_Color(LED_RED);
 			system_state = STATE_DAQ;
@@ -160,10 +161,9 @@ void shutDown(void){
 	#ifdef DEBUG
 		// Send Shutdown debug string
 		putLineUART("\nSHUTDOWN");
+		// Wait for UART to finish transmission
+		while ( !(Chip_UART_GetStatus(LPC_USART0)&UART_STAT_TXIDLE) ){};
 	#endif
-
-	// Wait for UART to finish transmission
-	while ( !(Chip_UART_GetStatus(LPC_USART0)&UART_STAT_TXIDLE) ){};
 
 	// Turn system power off
 	Chip_GPIO_SetPinState(LPC_GPIO, 0, PWR_ON_OUT, 0);

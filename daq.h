@@ -44,7 +44,7 @@ typedef struct DAQ {
 	char user_comment[80];	// User comment to appear at the top of each data file
 } DAQ;
 
-extern uint8_t *rsel_pins;
+extern uint8_t rsel_pins[3];
 
 extern FATFS fatfs[_VOLUMES];
 
