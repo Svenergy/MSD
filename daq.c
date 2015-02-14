@@ -9,6 +9,8 @@ static FIL file;
 // Time tracking
 static uint32_t sampleCount; // Count of samples taken in the current recording
 static uint32_t startTime; // Absolute start time in seconds
+static uint32_t dwt_lastTime; // Time of the last sample according to the DWT timer, used to measure sampling integral error and jitter
+static int64_t dwt_elapsedTime; // Total sampling elapsed time according to the DWT timer
 
 // Flag set by RIT_IRQHandler, accessed by SCT0_IRQHandler
 static volatile bool adcUsed;
@@ -59,15 +61,17 @@ void RIT_IRQHandler(void){
 	uint32_t i, j;
 	uint16_t rawVal[3];
 
+	uint32_t dwt_currentTime = DWT_Get();
+
 	char sampleStr[80]; // Ex. 9999.999999, 1.23456E+1, 1.23456E+1, 1.23456E+1
 	uint8_t sampleStr_size = 0;
 
 	float scaledVal;
 
 	uint32_t seconds;
-	uint64_t microseconds;
+	int64_t microseconds;
 
-	if(daq.sample_rate > 1000){
+	if(daq.sample_rate >= 1000){
 		// Set ADC config
 		uint16_t sampleCFG = (1 << ADC_CFG ) | // Overwrite config
 							 (6 << ADC_INCC) | // Unipolar, referenced to COM
@@ -127,12 +131,19 @@ void RIT_IRQHandler(void){
 	}
 
 	// Read current time with microsecond precision
-	microseconds = ((uint64_t)sampleCount * 1000000 ) / daq.sample_rate;
+	microseconds = ((int64_t)sampleCount * 1000000 ) / daq.sample_rate;
+
+	// Compare to DWT timer
+	dwt_elapsedTime += dwt_currentTime - dwt_lastTime;
+	dwt_lastTime = dwt_currentTime;
+	int32_t dT = microseconds - dwt_elapsedTime/72;
+
 	seconds = startTime + microseconds / 1000000;
 	microseconds = microseconds % 1000000;
 
+
 	// Format time in output string
-	sampleStr_size += sprintf(sampleStr+sampleStr_size, "\n%u.%06u", seconds, (uint32_t)microseconds); // sprintf does not work with 64-bit ints
+	sampleStr_size += sprintf(sampleStr+sampleStr_size, "\n%u.%06u,%4d", seconds, (uint32_t)microseconds, dT); // sprintf does not work with 64-bit ints
 
 	// Format each sample into the output string
 	for(i=0;i<3;i++){
@@ -220,6 +231,10 @@ void daq_init(void){
 
 	NVIC_EnableIRQ(RITIMER_IRQn);
 	NVIC_SetPriority(RITIMER_IRQn, 0x01); // Set to second highest priority to ensure sample timing accuracy
+
+	// Start time according to DWT timer
+	dwt_lastTime = DWT_Get();
+	dwt_elapsedTime = -(72000000 / daq.sample_rate);
 }
 
 // Write data file header
@@ -335,7 +350,7 @@ void daq_config_default(void){
 	}
 
 	// Sample rate 10Hz
-	daq.sample_rate = 10;
+	daq.sample_rate = 500;
 
 	// Vout = 5v
 	daq.mv_out = 5000;
