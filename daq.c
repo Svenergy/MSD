@@ -10,7 +10,7 @@ static FIL file;
 static uint32_t sampleCount; // Count of samples taken in the current recording
 static uint32_t startTime; // Absolute start time in seconds
 
-// flag set by RIT_IRQHandler, accessed by SCT0_IRQHandler
+// Flag set by RIT_IRQHandler, accessed by SCT0_IRQHandler
 static volatile bool adcUsed;
 
 // Vout PWM
@@ -140,8 +140,10 @@ void RIT_IRQHandler(void){
 			// Calculate value scaled to volts
 			if(daq.channel[i].range == V5){
 				scaledVal = (rawVal[i] - daq.channel[i].v5_zero_offset) / daq.channel[i].v5_LSB_per_volt;
+				scaledVal = clamp(scaledVal, 0.0, 5.0);
 			} else {
 				scaledVal = (rawVal[i] - daq.channel[i].v24_zero_offset) / daq.channel[i].v24_LSB_per_volt;
+				scaledVal = clamp(scaledVal, -24.0, 24.0);
 			}
 
 			// Scale volts to [units]
@@ -177,6 +179,7 @@ void daq_init(void){
 	// Set up channel ranges in hardware mux
 #ifndef DEBUG
 	for(i=0;i<3;i++){ // This Kills the UART
+		Chip_GPIO_SetPinDIROutput(LPC_GPIO, 0, rsel_pins[i]);
 		Chip_GPIO_SetPinState(LPC_GPIO, 0, rsel_pins[i], daq.channel[i].range);
 	}
 #endif
