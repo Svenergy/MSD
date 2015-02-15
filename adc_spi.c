@@ -1,6 +1,6 @@
 #include "adc_spi.h"
 
-static int32_t last_conv_time = 0;
+static uint32_t last_conv_time = 0;
 
 void adc_spi_setup(void){
 	SPI_CFG_T spiCfg;
@@ -33,7 +33,7 @@ static uint16_t SPI_Transfer(uint16_t data) {
 
 uint16_t adc_read(uint16_t config){
 	// Ensure >5us between conversions
-	int32_t now;
+	uint32_t now;
 
 	do{
 		now = DWT_Get();

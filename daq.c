@@ -1,10 +1,10 @@
 #include "daq.h"
 
 // DAQ configuration data
-static DAQ daq;
+DAQ daq;
 
-// Output file
-static FIL file;
+// FatFS file object
+FIL file;
 
 // Time tracking
 static uint32_t sampleCount; // Count of samples taken in the current recording
@@ -141,9 +141,8 @@ void RIT_IRQHandler(void){
 	seconds = startTime + microseconds / 1000000;
 	microseconds = microseconds % 1000000;
 
-
 	// Format time in output string
-	sampleStr_size += sprintf(sampleStr+sampleStr_size, "\n%u.%06u,%4d", seconds, (uint32_t)microseconds, dT); // sprintf does not work with 64-bit ints
+	sampleStr_size += sprintf(sampleStr+sampleStr_size, "\n%u.%06u, %4d", seconds, (uint32_t)microseconds, dT); // sprintf does not work with 64-bit ints
 
 	// Format each sample into the output string
 	for(i=0;i<3;i++){
@@ -165,10 +164,11 @@ void RIT_IRQHandler(void){
 		}
 	}
 	#ifdef DEBUG
-		putLineUART(sampleStr);
+		//putLineUART(sampleStr);
+		putLineUART("\ns");
 	#endif
-	// Write string to file buffer
-	f_puts(sampleStr, &file);
+	// Write string to ring buffer
+	RingBuffer_write(ringBuff, sampleStr);
 
 	// Increment sample counter
 	sampleCount++;
@@ -226,7 +226,13 @@ void daq_init(void){
 
 	// Set up sampling interrupt using RIT
 	Chip_RIT_Init(LPC_RITIMER);
-	Chip_RIT_SetTimerIntervalHz(LPC_RITIMER, daq.sample_rate);
+
+	/* Set timer compare value and periodic mode */
+	// Do not use Chip_RIT_SetTimerIntervalHz, for timing critical operations, it has an off by 1 error on the period in clock cycles
+	uint64_t cmp_value = Chip_Clock_GetSystemClockRate() / daq.sample_rate - 1;
+	Chip_RIT_SetCompareValue(LPC_RITIMER, cmp_value);
+	Chip_RIT_EnableCompClear(LPC_RITIMER);
+
 	Chip_RIT_Enable(LPC_RITIMER);
 
 	NVIC_EnableIRQ(RITIMER_IRQn);
@@ -306,11 +312,11 @@ void daq_config_check(void){
 	// Force sample rate to be in the set [1,2,5]*10^k
 	uint32_t mag = 1;
 	while(mag < daq.sample_rate){
-		if(daq.sample_rate < mag * 2){
+		if(daq.sample_rate <= mag * 2){
 			daq.sample_rate = mag * 2;
-		}else if(daq.sample_rate < mag * 5){
+		}else if(daq.sample_rate <= mag * 5){
 			daq.sample_rate = mag * 5;
-		}else if(daq.sample_rate < mag * 10){
+		}else if(daq.sample_rate <= mag * 10){
 			daq.sample_rate = mag * 10;
 		}
 		mag *= 10;
@@ -350,7 +356,7 @@ void daq_config_default(void){
 	}
 
 	// Sample rate 10Hz
-	daq.sample_rate = 500;
+	daq.sample_rate = 200;
 
 	// Vout = 5v
 	daq.mv_out = 5000;

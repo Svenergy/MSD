@@ -23,7 +23,7 @@ SD_CardInfo cardinfo;
 /*-----------------------------------------------------------------------*/
 
 DSTATUS disk_status (
-	BYTE pdrv		/* Physical drive nmuber to identify the drive */
+	BYTE pdrv		/* Physical drive number to identify the drive */
 )
 {
 	if (sd_state == SD_READY) {
@@ -34,11 +34,11 @@ DSTATUS disk_status (
 }
 
 /*-----------------------------------------------------------------------*/
-/* Inidialize a Drive                                                    */
+/* Initialize a Drive                                                    */
 /*-----------------------------------------------------------------------*/
 
 DSTATUS disk_initialize (
-	BYTE pdrv				/* Physical drive nmuber to identify the drive */
+	BYTE pdrv				/* Physical drive number to identify the drive */
 )
 {
 	/* Currently initializes SD in main */
@@ -51,7 +51,7 @@ DSTATUS disk_initialize (
 /*-----------------------------------------------------------------------*/
 
 DRESULT disk_read (
-	BYTE pdrv,		/* Physical drive nmuber to identify the drive */
+	BYTE pdrv,		/* Physical drive number to identify the drive */
 	BYTE *buff,		/* Data buffer to store read data */
 	DWORD sector,	/* Sector address in LBA */
 	UINT count		/* Number of sectors to read */
@@ -82,7 +82,7 @@ DRESULT disk_read (
 
 #if _USE_WRITE
 DRESULT disk_write (
-	BYTE pdrv,			/* Physical drive nmuber to identify the drive */
+	BYTE pdrv,			/* Physical drive number to identify the drive */
 	const BYTE *buff,	/* Data to be written */
 	DWORD sector,		/* Sector address in LBA */
 	UINT count			/* Number of sectors to write */
@@ -95,15 +95,16 @@ DRESULT disk_write (
 			return RES_ERROR;
 		}
 	} else if (count > 1) {
-		while (count > 1) {
+		UINT i;
+		for(i=0;i<count;i++){
 			if(sd_write_block(sector,buff) != SD_OK) {
 				return RES_ERROR;
 			} else {
 				sector++;
 				buff += _MAX_SS;
-				count--;
 			}
 		}
+		return RES_OK;
 		/* Write Multiple Block Function */
 		/* if (sd_write_multiple_blocks(sector,count,buff) == SD_OK) {
 			return RES_OK;
@@ -123,7 +124,7 @@ DRESULT disk_write (
 
 #if _USE_IOCTL
 DRESULT disk_ioctl (
-	BYTE pdrv,		/* Physical drive nmuber (0..) */
+	BYTE pdrv,		/* Physical drive number (0..) */
 	BYTE cmd,		/* Control code */
 	void *buff		/* Buffer to send/receive control data */
 )

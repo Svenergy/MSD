@@ -26,8 +26,13 @@ BLUE = error
 #include "sd_spi.h"
 #include "push_button.h"
 #include "ff.h"
+#include "ring_buff.h"
 
 #define TICKRATE_HZ1 (100)	/* 100 ticks per second */
+
+#define WRITE_BUFF_SIZE 8192 /* size of the output file write buffer */
+
+#define BLOCK_SIZE 512 /* max number of bytes to read from the buffer at once */
 
 typedef enum {
 	STATE_IDLE,
@@ -44,18 +49,21 @@ typedef enum {
 
 FATFS fatfs[_VOLUMES];
 
+RingBuffer *ringBuff;
+
 SD_STATE sd_state;
 
 SD_CardInfo cardinfo;
 
-float read_vBat(int n);
+float read_vBat(int32_t n);
 void shutDown(void);
 void error(void);
+
+extern total_written;
 
 void SysTick_Handler(void){
 	pb_loop();
 
-	// Read current system state and change state if needed
 	switch(system_state){
 	case STATE_IDLE:
 		// If VBUS is connected and SD card is ready, try to connect as MSC
@@ -87,8 +95,34 @@ void SysTick_Handler(void){
 		}
 		break;
 	case STATE_DAQ:
+		; // prevents "A label can only be followed by a statement" error
+		// Write from buffer to file
+		int32_t br;
+		UINT bw;
+		char data[BLOCK_SIZE];
+
+		do{
+			br = RingBuffer_read(ringBuff, data, BLOCK_SIZE);
+			FRESULT errorCode;
+			Board_LED_Color(LED_YELLOW);
+			if((errorCode = f_write(&file, data, br, &bw)) != FR_OK){
+#ifdef DEBUG
+				char buff[20];
+				sprintf(buff, "\nfwrite_error = %d\n", errorCode);
+				// Stop RIT interrupt
+				NVIC_DisableIRQ(RITIMER_IRQn);
+				putLineUART(buff);
+#endif
+				error();
+			}
+			Board_LED_Color(LED_RED);
+		}while(br == BLOCK_SIZE);
+#ifdef DEBUG
+			putLineUART("r\n");
+#endif
 		// If user has short pressed PB to stop acquisition
 		if (pb_shortPress()){
+			Board_LED_Color(LED_PURPLE);
 			daq_stop();
 			Board_LED_Color(LED_GREEN);
 			system_state = STATE_IDLE;
@@ -200,9 +234,9 @@ void ADC_setup(void){
 }
 
 // Returns the battery voltage reading in volts after averaging n samples
-float read_vBat(int n){
+float read_vBat(int32_t n){
 	uint32_t sum = 0;
-	int i;
+	int32_t i;
 	for(i=0;i<n;i++){
 		Chip_ADC_StartSequencer(LPC_ADC0, ADC_SEQA_IDX); // Set START bit to 1
 		while(!(Chip_ADC_GetDataReg(LPC_ADC0, 3)&ADC_DR_DATAVALID)); // Wait for conversion to complete
@@ -239,6 +273,9 @@ int main(void) {
 
 	// Sets up the FatFS Object
 	f_mount(&fatfs,"",0);
+
+	// Initialize ring buffer used to buffer writes the data file
+	ringBuff = RingBuffer_init(WRITE_BUFF_SIZE);
 
 	// Initialize push button
 	pb_init(TICKRATE_HZ1);

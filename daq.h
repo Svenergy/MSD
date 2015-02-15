@@ -8,6 +8,7 @@
 #include "delay.h"
 #include "adc_spi.h"
 #include "ff.h"
+#include "ring_buff.h"
 
 #define clamp(amt,low,high) ((amt)<(low)?(low):((amt)>(high)?(high):(amt)))
 
@@ -46,7 +47,15 @@ typedef struct DAQ {
 
 extern uint8_t rsel_pins[3];
 
+// FatFS volume and file
 extern FATFS fatfs[_VOLUMES];
+extern FIL file;
+
+// write buffer
+extern RingBuffer *ringBuff;
+
+// DAQ configuration data
+extern DAQ daq;
 
 // Start acquiring data
 void daq_init(void);
