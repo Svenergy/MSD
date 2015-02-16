@@ -13,8 +13,11 @@
 #include "delay.h"
 #include "ffconf.h"
 
+/* Define this to enable SD block write timing debug prints */
+//#define SD_WRITE_DEBUG
+
 /* Definitions of physical drive number for each drive */
-#define SD		0	/* Example: Map SD card to drive number 0 */
+//#define SD		0	/* Example: Map SD card to drive number 0 */
 
 SD_CardInfo cardinfo;
 
@@ -74,11 +77,12 @@ DRESULT disk_read (
 	}
 }
 
-
-
 /*-----------------------------------------------------------------------*/
 /* Write Sector(s)                                                       */
 /*-----------------------------------------------------------------------*/
+#ifdef SD_WRITE_DEBUG
+uint32_t writeTimeMax; // Used for profiling
+#endif
 
 #if _USE_WRITE
 DRESULT disk_write (
@@ -88,8 +92,22 @@ DRESULT disk_write (
 	UINT count			/* Number of sectors to write */
 )
 {
+#ifdef SD_WRITE_DEBUG
+	uint32_t start_time = DWT_Get();
+	uint32_t bc = 0;
+#endif
 	if (count == 1) {
 		if (sd_write_block(sector,buff) == SD_OK) {
+#ifdef SD_WRITE_DEBUG
+			bc++;
+			uint32_t elapsed_time = DWT_Get() - start_time;
+			char b[20];
+			//if(elapsed_time > 250000){ //only print blocks that take longer than normal
+				sprintf(b, "\n%d, %d\n", bc, elapsed_time);
+				putLineUART(b);
+			//}
+
+#endif
 			return RES_OK;
 		} else {
 			return RES_ERROR;
@@ -97,13 +115,26 @@ DRESULT disk_write (
 	} else if (count > 1) {
 		UINT i;
 		for(i=0;i<count;i++){
-			if(sd_write_block(sector,buff) != SD_OK) {
-				return RES_ERROR;
-			} else {
+			if(sd_write_block(sector,buff) == SD_OK) {
+#ifdef SD_WRITE_DEBUG
+				bc++;
+#endif
 				sector++;
 				buff += _MAX_SS;
+			} else {
+				return RES_ERROR;
+
 			}
 		}
+#ifdef SD_WRITE_DEBUG
+		bc++;
+		uint32_t elapsed_time = DWT_Get() - start_time;
+		char b[20];
+		//if(elapsed_time > 250000){ //only print blocks that take longer than normal
+			sprintf(b, "\n%d, %d\n", bc, elapsed_time);
+			putLineUART(b);
+		//}
+#endif
 		return RES_OK;
 		/* Write Multiple Block Function */
 		/* if (sd_write_multiple_blocks(sector,count,buff) == SD_OK) {

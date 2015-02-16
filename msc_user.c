@@ -16,19 +16,18 @@
 #include "app_usbd_cfg.h"
 #include "error.h"
 #include "sd_spi.h"
-
-extern void error(void);
+#include "sys_error.h"
 
 #define BLOCK_COUNT 8
 
 // read buffer
-__BSS(RAM2) uint8_t bufr[SD_BLOCKSIZE*BLOCK_COUNT];
+uint8_t bufr[SD_BLOCKSIZE*BLOCK_COUNT];
 
 // write buffer
-__BSS(RAM2) uint8_t bufw[SD_BLOCKSIZE];
+uint8_t bufw[SD_BLOCKSIZE];
 
 // verify buffer
-__BSS(RAM2) uint8_t bufv[SD_BLOCKSIZE];
+uint8_t bufv[SD_BLOCKSIZE];
 
 // Zero-Copy Data Transfer model
 void MSC_Read(uint32_t offset, uint8_t** buff_adr, uint32_t length, uint32_t high_offset) { // high offset is always 0 and cannot be used to increase capacity >4gb
@@ -47,7 +46,7 @@ void MSC_Read(uint32_t offset, uint8_t** buff_adr, uint32_t length, uint32_t hig
   if(new_address < address || new_address >= address + BLOCK_COUNT || new_address < BLOCK_COUNT){
 	address = new_address;
 	if(sd_read_multiple_blocks(address, BLOCK_COUNT, bufr)!=SD_OK){
-	  error();
+	  error(ERROR_MSC_SD_READ);
 	}
   }
 
@@ -70,7 +69,7 @@ void MSC_Write(uint32_t offset, uint8_t** buff_adr, uint32_t length, uint32_t hi
 
   if((offset+USB_FS_MAX_BULK_PACKET)%SD_BLOCKSIZE==0) {
     if(sd_write_block(offset/SD_BLOCKSIZE, bufw)!=SD_OK){
-    	error();
+    	error(ERROR_MSC_SD_WRITE);
     }
   }
   Board_LED_Color(LED_YELLOW); // Yellow MSC idle

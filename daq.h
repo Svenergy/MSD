@@ -9,6 +9,7 @@
 #include "adc_spi.h"
 #include "ff.h"
 #include "ring_buff.h"
+#include "sys_error.h"
 
 #define clamp(amt,low,high) ((amt)<(low)?(low):((amt)>(high)?(high):(amt)))
 
@@ -52,7 +53,7 @@ extern FATFS fatfs[_VOLUMES];
 extern FIL file;
 
 // write buffer
-extern RingBuffer *ringBuff;
+extern struct RingBuffer *ringBuff;
 
 // DAQ configuration data
 extern DAQ daq;

@@ -10,11 +10,10 @@ COLOR CODES:
 N/A = off
 RED = recording data
 GREEN = power on idle
-YELLOW = mass storage mode idle
+YELLOW = mass storage mode idle, DAQ data writing
 PURPLE = mass storage mode data read/write, DAQ initializing
 CYAN = SD card not present
 BLUE = error
-
 */
 
 #include <stdio.h>
@@ -27,39 +26,21 @@ BLUE = error
 #include "push_button.h"
 #include "ff.h"
 #include "ring_buff.h"
+#include "sys_error.h"
+#include "system.h"
 
 #define TICKRATE_HZ1 (100)	/* 100 ticks per second */
 
-#define WRITE_BUFF_SIZE 8192 /* size of the output file write buffer */
+/* size of the output file write buffer */
+#define WRITE_BUFF_SIZE 0x4FFF // 0x5000 = 20kB, set 1 smaller for the extra byte required by the ring buffer
 
 #define BLOCK_SIZE 512 /* max number of bytes to read from the buffer at once */
-
-typedef enum {
-	STATE_IDLE,
-	STATE_MSC,
-	STATE_DAQ,
-} SYSTEM_STATE;
-
-SYSTEM_STATE system_state;
-
-typedef enum {
-	SD_OUT,
-	SD_READY,
-} SD_STATE;
 
 FATFS fatfs[_VOLUMES];
 
 RingBuffer *ringBuff;
 
-SD_STATE sd_state;
-
 SD_CardInfo cardinfo;
-
-float read_vBat(int32_t n);
-void shutDown(void);
-void error(void);
-
-extern total_written;
 
 void SysTick_Handler(void){
 	pb_loop();
@@ -72,7 +53,7 @@ void SysTick_Handler(void){
 				Board_LED_Color(LED_YELLOW);
 				system_state = STATE_MSC;
 			}else{ // Error on MSC initialization
-				error();
+				error(ERROR_MSC_INIT);
 			}
 		}
 		// If user has short pressed PB and SD card is ready, initiate acquisition
@@ -86,8 +67,6 @@ void SysTick_Handler(void){
 	case STATE_MSC:
 		// If VBUS is disconnected
 		if (Chip_GPIO_GetPinState(LPC_GPIO, 0, VBUS) == 0){
-			// Force shut down when USB is disconnected
-			//shutDown();
 			msc_stop();
 			pb_shortPress(); // Clear pending button presses
 			Board_LED_Color(LED_GREEN);
@@ -100,26 +79,17 @@ void SysTick_Handler(void){
 		int32_t br;
 		UINT bw;
 		char data[BLOCK_SIZE];
-
+		Board_LED_Color(LED_YELLOW);
 		do{
 			br = RingBuffer_read(ringBuff, data, BLOCK_SIZE);
 			FRESULT errorCode;
-			Board_LED_Color(LED_YELLOW);
 			if((errorCode = f_write(&file, data, br, &bw)) != FR_OK){
-#ifdef DEBUG
-				char buff[20];
-				sprintf(buff, "\nfwrite_error = %d\n", errorCode);
-				// Stop RIT interrupt
-				NVIC_DisableIRQ(RITIMER_IRQn);
-				putLineUART(buff);
-#endif
-				error();
+				error(ERROR_F_WRITE);
 			}
-			Board_LED_Color(LED_RED);
+
 		}while(br == BLOCK_SIZE);
-#ifdef DEBUG
-			putLineUART("r\n");
-#endif
+		Board_LED_Color(LED_RED);
+
 		// If user has short pressed PB to stop acquisition
 		if (pb_shortPress()){
 			Board_LED_Color(LED_PURPLE);
@@ -141,7 +111,7 @@ void SysTick_Handler(void){
 			// Delay 200ms to let connections and power stabilize
 			DWT_Delay(200000);
 			if(init_sd_spi(&cardinfo) != SD_OK) {
-				error(); // SD card could not be initialized
+				error(ERROR_SD_INIT);
 			}
 			switch(system_state){
 			case STATE_IDLE:
@@ -160,95 +130,16 @@ void SysTick_Handler(void){
 
 	// Shut down if PB is long pressed
 	if (pb_longPress()){
-		shutDown();
+		shutdown();
 	}
 
 	// Read battery voltage, shutdown if too low
 	if (read_vBat(10) < 3.0){
-		shutDown();
+		shutdown();
 	}
-}
-
-void error(void){
-	// Blue LED on in error
-	Board_LED_Color(LED_BLUE);
-
-	// Delay 5 seconds
-	DWT_Delay(5000000);
-
-	shutDown();
-}
-
-void shutDown(void){
-	// Shut down procedures
-	if(system_state == STATE_DAQ){
-		daq_stop();
-	} else if(system_state == STATE_MSC){
-		msc_stop();
-	}
-
-	Board_LED_Color(LED_OFF);
-
-	// Unmount file system
-	f_mount(NULL,"",0);
-
-	#ifdef DEBUG
-		// Send Shutdown debug string
-		putLineUART("\nSHUTDOWN");
-		// Wait for UART to finish transmission
-		while ( !(Chip_UART_GetStatus(LPC_USART0)&UART_STAT_TXIDLE) ){};
-	#endif
-
-	// Turn system power off
-	Chip_GPIO_SetPinState(LPC_GPIO, 0, PWR_ON_OUT, 0);
-	// Wait for interrupts
-	while (1) {
-		__WFI();
-	}
-}
-
-void ADC_setup(void){
-	// Connect pin in switch matrix adn set IOCON
-	Chip_IOCON_PinMuxSet(LPC_IOCON, 0, VBAT_D, IOCON_ADMODE_EN);
-	Chip_SWM_EnableFixedPin(SWM_FIXED_ADC0_3);
-
-	// Initialize ADC
-	Chip_ADC_Init(LPC_ADC0, 0);
-
-	// Set ADC clock to 2MHz
-	Chip_ADC_SetClockRate(LPC_ADC0, 2000000);
-
-	// Start up calibration
-	Chip_ADC_StartCalibration(LPC_ADC0);
-
-	// Wait for calibration to complete
-	while(!Chip_ADC_IsCalibrationDone(LPC_ADC0));
-
-	// Select appropriate voltage range
-	Chip_ADC_SetTrim(LPC_ADC0, ADC_TRIM_VRANGE_HIGHV);
-
-	// Select ADC channel and Set TRIGPOL to 1 and SEQA_ENA to 1
-	Chip_ADC_SetupSequencer(LPC_ADC0, ADC_SEQA_IDX,
-			ADC_SEQ_CTRL_CHANSEL(3) | ADC_SEQ_CTRL_HWTRIG_POLPOS |
-			ADC_SEQ_CTRL_SEQ_ENA);
-}
-
-// Returns the battery voltage reading in volts after averaging n samples
-float read_vBat(int32_t n){
-	uint32_t sum = 0;
-	int32_t i;
-	for(i=0;i<n;i++){
-		Chip_ADC_StartSequencer(LPC_ADC0, ADC_SEQA_IDX); // Set START bit to 1
-		while(!(Chip_ADC_GetDataReg(LPC_ADC0, 3)&ADC_DR_DATAVALID)); // Wait for conversion to complete
-		sum += ADC_DR_RESULT(Chip_ADC_GetDataReg(LPC_ADC0, 3)); // Read result from the DAT1 register
-	}
-
-	// Convert raw value to volts
-	return (3.3*sum) / (4096 * n);
 }
 
 int main(void) {
-
 	uint32_t sysTickRate;
 
 	Board_Init();
@@ -260,7 +151,7 @@ int main(void) {
 	#endif
 
 	// Set up ADC for reading battery voltage
-	ADC_setup();
+	read_vBat_setup();
 
 	/* Enable and setup SysTick Timer at a periodic rate */
 	Chip_Clock_SetSysTickClockDiv(1);
@@ -275,7 +166,7 @@ int main(void) {
 	f_mount(&fatfs,"",0);
 
 	// Initialize ring buffer used to buffer writes the data file
-	ringBuff = RingBuffer_init(WRITE_BUFF_SIZE);
+	ringBuff = RingBuffer_init_with_buf(WRITE_BUFF_SIZE, RAM1_BASE);
 
 	// Initialize push button
 	pb_init(TICKRATE_HZ1);

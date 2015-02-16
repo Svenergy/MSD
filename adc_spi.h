@@ -15,7 +15,7 @@
 #include "delay.h"
 
 //CFG register bit definitions
-typedef enum {
+enum {
 	ADC_RB	 =  2, // CFG readback, 0 = read back, 1 = do not read back
 	ADC_SEQ	 =  3, // Channel Sequencer
 	ADC_REF	 =  5, // Reference select

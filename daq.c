@@ -16,6 +16,7 @@ static int64_t dwt_elapsedTime; // Total sampling elapsed time according to the 
 static volatile bool adcUsed;
 
 // Vout PWM
+// Takes 1320cc (18.3us). At 7200Hz, takes 13.2% of cpu time
 void SCT0_IRQHandler(void){
 	/* Clear interrupt */
 	Chip_SCT_ClearEventFlag(LPC_SCT0, SCT_EVT_0);
@@ -60,13 +61,12 @@ void RIT_IRQHandler(void){
 
 	uint32_t i, j;
 	uint16_t rawVal[3];
+	float scaledVal[3];
 
 	uint32_t dwt_currentTime = DWT_Get();
 
-	char sampleStr[80]; // Ex. 9999.999999, 1.23456E+1, 1.23456E+1, 1.23456E+1
-	uint8_t sampleStr_size = 0;
-
-	float scaledVal;
+	char sampleStr[60]; // Ex. 9999.123400, 1.23456E+01, 1.23456E+01, 1.23456E+01
+	int8_t sampleStr_size = 0;
 
 	uint32_t seconds;
 	int64_t microseconds;
@@ -141,31 +141,40 @@ void RIT_IRQHandler(void){
 	seconds = startTime + microseconds / 1000000;
 	microseconds = microseconds % 1000000;
 
-	// Format time in output string
-	sampleStr_size += sprintf(sampleStr+sampleStr_size, "\n%u.%06u, %4d", seconds, (uint32_t)microseconds, dT); // sprintf does not work with 64-bit ints
+	// Error if sample timing is off by > 50us
+	if(dT > 3600 || dT < -3600){
+		error(ERROR_SAMPLE_TIME);
+	}
 
-	// Format each sample into the output string
+	/* Scale samples , takes 920-923cc (12.8us) */
 	for(i=0;i<3;i++){
-		if(daq.channel[i].enable){ // Only print enabled channels
+		if(daq.channel[i].enable){ // Only scale enabled channels
 			// Calculate value scaled to volts
 			if(daq.channel[i].range == V5){
-				scaledVal = (rawVal[i] - daq.channel[i].v5_zero_offset) / daq.channel[i].v5_LSB_per_volt;
-				scaledVal = clamp(scaledVal, 0.0, 5.0);
+				scaledVal[i] = (rawVal[i] - daq.channel[i].v5_zero_offset) / daq.channel[i].v5_LSB_per_volt;
+				scaledVal[i] = clamp(scaledVal[i], 0.0, 5.0);
 			} else {
-				scaledVal = (rawVal[i] - daq.channel[i].v24_zero_offset) / daq.channel[i].v24_LSB_per_volt;
-				scaledVal = clamp(scaledVal, -24.0, 24.0);
+				scaledVal[i] = (rawVal[i] - daq.channel[i].v24_zero_offset) / daq.channel[i].v24_LSB_per_volt;
+				scaledVal[i] = clamp(scaledVal[i], -24.0, 24.0);
 			}
-
 			// Scale volts to [units]
-			scaledVal *= daq.channel[i].units_per_volt;
+			scaledVal[i] *= daq.channel[i].units_per_volt;
+		}
+	}
 
+    /* String formatting takes 43000cc (597us) */
+	// Format time in output string
+	sampleStr_size += sprintf(sampleStr+sampleStr_size, "\n%u.%06u", seconds, (uint32_t)microseconds); // sprintf does not work with 64-bit ints
+
+	// Format samples in output string
+	for(i=0;i<3;i++){
+		if(daq.channel[i].enable){
 			// Format and append sample string to output string
-			sampleStr_size += sprintf(sampleStr+sampleStr_size, ", %.5E", scaledVal);
+			sampleStr_size += sprintf(sampleStr+sampleStr_size, ", %.5E", scaledVal[i]);
 		}
 	}
 	#ifdef DEBUG
-		//putLineUART(sampleStr);
-		putLineUART("\ns");
+		putLineUART(sampleStr);
 	#endif
 	// Write string to ring buffer
 	RingBuffer_write(ringBuff, sampleStr);
@@ -234,6 +243,7 @@ void daq_init(void){
 	Chip_RIT_EnableCompClear(LPC_RITIMER);
 
 	Chip_RIT_Enable(LPC_RITIMER);
+	Chip_RIT_ClearIntStatus(LPC_RITIMER);
 
 	NVIC_EnableIRQ(RITIMER_IRQn);
 	NVIC_SetPriority(RITIMER_IRQn, 0x01); // Set to second highest priority to ensure sample timing accuracy
@@ -245,7 +255,7 @@ void daq_init(void){
 
 // Write data file header
 void daq_header(void){
-	int i;
+	uint8_t i;
 	char headerStr[80];
 	uint8_t headerStr_size = 0;
 
@@ -293,6 +303,7 @@ void daq_header(void){
 // Stop acquiring data
 void daq_stop(void){
 	// Stop RIT interrupt
+	Chip_RIT_DeInit(LPC_RITIMER);
 	NVIC_DisableIRQ(RITIMER_IRQn);
 
 	// Stop Vout interrupt
@@ -356,7 +367,7 @@ void daq_config_default(void){
 	}
 
 	// Sample rate 10Hz
-	daq.sample_rate = 200;
+	daq.sample_rate = 100;
 
 	// Vout = 5v
 	daq.mv_out = 5000;

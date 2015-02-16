@@ -7,6 +7,11 @@
 #include "uart.h"
 #endif
 
+/* Address of the base of each ram bank */
+#define RAM0_BASE 0x02000000 // 16kB
+#define RAM1_BASE 0x02004000 // 16kB
+#define RAM2_BASE 0x02008000 // 4kB
+
 /* Set up board led colors */
 typedef enum {
 	LED_OFF,

@@ -1,6 +1,6 @@
 #include "ring_buff.h"
 
-// Allocate memory for the buffer
+// Allocate memory for the buffer and return a ring buffer struct
 RingBuffer *RingBuffer_init(int32_t length){
     RingBuffer *buffer = malloc(sizeof(RingBuffer));
     buffer->length  = length + 1;
@@ -10,11 +10,20 @@ RingBuffer *RingBuffer_init(int32_t length){
     return buffer;
 }
 
+// Return a ring buffer struct, using a user set buffer
+RingBuffer *RingBuffer_init_with_buf(int32_t length, char *pBuffer){
+    RingBuffer *buffer = malloc(sizeof(RingBuffer));
+    buffer->length  = length + 1;
+    buffer->start = 0;
+    buffer->end = 0;
+    buffer->buffer = pBuffer;
+    return buffer;
+}
+
 // Free memory used by the buffer
 void RingBuffer_destroy(RingBuffer *buffer){
     if(buffer) {
         free(buffer->buffer);
-        free(buffer->returnBuffer);
         free(buffer);
     }
 }
@@ -26,10 +35,7 @@ void RingBuffer_write(RingBuffer *b, char *string){
 
 	// Error if data would be overwritten before being read
 	if(len + ((b->end - b->start + b->length) % b->length)  >= b->length ){
-	#ifdef DEBUG
-		putLineUART("\nbf_ovr");
-	#endif
-		error();
+		error(ERROR_BUF_OVF);
 	}
 
 	// Copy the string into the ring buffer
@@ -76,31 +82,7 @@ int32_t RingBuffer_read(RingBuffer *b, char *data, int32_t count){
 	return br;
 }
 
-
-/*
-// Read all data in the ring buffer and output as a string
-char* RingBuffer_reads(RingBuffer *b){
-	int32_t count;
-	int32_t end = b->end; // Buffer the value of end in case read is interrupted by a write
-
-	// Copy data
-	if(end > b->start){
-		count = end - b->start;
-		memcpy(b->returnBuffer, b->buffer + b->start, count);
-	}else{
-		count = b->length - b->start;
-		memcpy(b->returnBuffer, b->buffer + b->start, count);
-		memcpy(b->returnBuffer + count, b->buffer, end);
-		count = end + b->length - b->start;
-	}
-
-	// Move start to end
-	b->start = end;
-
-	// Append null terminator
-	b->returnBuffer[count] = '\0';
-
-	// Return data read
-	return b->returnBuffer;
+// Return the size of the current data in the buffer
+int32_t RingBuffer_get_size(RingBuffer *b){
+	return (b->end - b->start + b->length) % b->length;
 }
-*/
