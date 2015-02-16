@@ -80,16 +80,16 @@ void RIT_IRQHandler(void){
 							 (1 << ADC_REF)  | // Internal reference output 4.096v
 							 (3 << ADC_SEQ)  | // Channel sequencer enabled
 							 (1 << ADC_RB);    // Do not read back config
-		do{
-			adcUsed = false;
-			adc_read(sampleCFG);
-			adc_read(0); // Buffering read, next read returns sample from channel 0
 
-			// Read all channels
-			for(i=0;i<3;i++){
-				rawVal[i] = adc_read(0);
-			}
-		}while(adcUsed == true); // Loop until samples are not interrupted by pwm
+		NVIC_DisableIRQ(SCT0_IRQn); // Prevent sampling interruptions
+		adc_read(sampleCFG);
+		adc_read(0); // Buffering read, next read returns sample from channel 0
+		// Read all channels
+		for(i=0;i<3;i++){
+			rawVal[i] = adc_read(0);
+		}
+		NVIC_EnableIRQ(SCT0_IRQn);
+
 	} else { // Average a bunch of samples for each channel when recording at slow rates for better noise rejection
 		// Read all enabled channels
 		for(i=0;i<3;i++){
@@ -366,7 +366,7 @@ void daq_config_default(void){
 		daq.channel[i].v24_LSB_per_volt = 1341.402;	// theoretical sensitivity of reading in LSB / volt = ((1 << 16)/4.096) * (1/(1/100+1/402+1/21+1/16.9)) / 100
 	}
 
-	// Sample rate 10Hz
+	// Sample rate in Hz
 	daq.sample_rate = 100;
 
 	// Vout = 5v
