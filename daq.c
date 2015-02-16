@@ -12,11 +12,11 @@ static uint32_t startTime; // Absolute start time in seconds
 static uint32_t dwt_lastTime; // Time of the last sample according to the DWT timer, used to measure sampling integral error and jitter
 static int64_t dwt_elapsedTime; // Total sampling elapsed time according to the DWT timer
 
-// Flag set by RIT_IRQHandler, accessed by SCT0_IRQHandler
+// Flag set by SCT0_IRQHandler, accessed by RIT_IRQHandler
 static volatile bool adcUsed;
 
 // Vout PWM
-// Takes 1320cc (18.3us). At 7200Hz, takes 13.2% of cpu time
+// Takes 1540cc (21us). At 7200Hz, takes 15.4% of cpu time
 void SCT0_IRQHandler(void){
 	/* Clear interrupt */
 	Chip_SCT_ClearEventFlag(LPC_SCT0, SCT_EVT_0);
@@ -146,7 +146,7 @@ void RIT_IRQHandler(void){
 		error(ERROR_SAMPLE_TIME);
 	}
 
-	/* Scale samples , takes 920-923cc (12.8us) */
+	/* Scale samples , takes 1260cc (17.5us) */
 	for(i=0;i<3;i++){
 		if(daq.channel[i].enable){ // Only scale enabled channels
 			// Calculate value scaled to volts
@@ -162,7 +162,7 @@ void RIT_IRQHandler(void){
 		}
 	}
 
-    /* String formatting takes 43000cc (597us) */
+    /* String formatting takes 45000cc (625us) */
 	// Format time in output string
 	sampleStr_size += sprintf(sampleStr+sampleStr_size, "\n%u.%06u", seconds, (uint32_t)microseconds); // sprintf does not work with 64-bit ints
 
