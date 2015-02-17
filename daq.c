@@ -16,7 +16,7 @@ static int64_t dwt_elapsedTime; // Total sampling elapsed time according to the 
 static volatile bool adcUsed;
 
 // Vout PWM
-// Takes 1540cc (21us). At 7200Hz, takes 15.4% of cpu time
+// Takes 1190cc (16.5us). At 7200Hz, takes 11.9% of cpu time
 void SCT0_IRQHandler(void){
 	/* Clear interrupt */
 	Chip_SCT_ClearEventFlag(LPC_SCT0, SCT_EVT_0);
@@ -36,18 +36,19 @@ void SCT0_IRQHandler(void){
     adc_read(0);
 
     // Theoretical mv / LSB = 1000 * ((100+20)/20) * 4.096 / (1 << 16) = 0.375
-    propError =  daq.mv_out - 0.375 * adc_read(0); // Units are mv
+    propError =  daq.mv_out - (3 * adc_read(0)) / 8; // Units are mv
 
     intError += propError; // Units are mv * ms * 7.2, or giving a rate of 7.2e6/(v*s)
 
     // Integral Error Saturation
-    intError = clamp(intError, 0, 14400000L); // 14.4E6 means saturation at 2[v*s]
+    intError = clamp(intError, -72000, 72000); // 7.2E5 means saturation at 10[mv*s]
 
     // Proportional Error Saturation, low to reduce overshoot and decrease integral settling time for large steps
-    propError = clamp(propError, -1000, 1000); // Saturation at +/- 1v
+    propError = clamp(propError, -350, 350); // Saturation at +/- 1v
 
     // Calculate PWM output value out of 10000
-    pwmOut = intError / 1440 + propError / 2;
+    //Theoretical Duty = mv_out * 10 / ((3.3*39 / (39+51.7)) * (3.48E6/182E3 + 1)), = 0.350253
+    pwmOut = (daq.mv_out * 35025) / 100000 + intError / 200 + 2 * propError;
     pwmOut = clamp(pwmOut, 0, 9999);
 
     // Set PWM output
@@ -174,7 +175,7 @@ void RIT_IRQHandler(void){
 		}
 	}
 	#ifdef DEBUG
-		putLineUART(sampleStr);
+		//putLineUART(sampleStr);
 	#endif
 	// Write string to ring buffer
 	RingBuffer_write(ringBuff, sampleStr);
@@ -367,7 +368,7 @@ void daq_config_default(void){
 	}
 
 	// Sample rate in Hz
-	daq.sample_rate = 100;
+	daq.sample_rate = 200;
 
 	// Vout = 5v
 	daq.mv_out = 5000;
