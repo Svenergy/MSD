@@ -32,18 +32,21 @@ BLUE = error
 #include "config.h"
 #include "log.h"
 
-#define TICKRATE_HZ1 (100)	/* 100 ticks per second */
+#define TICKRATE_HZ1 (100)	// 100 ticks per second
+#define TIMEOUT_SECS (600)	// Shut down after X seconds in Idle
 
-/* size of the output file write buffer */
+/* Size of the output file write buffer */
 #define WRITE_BUFF_SIZE 0x4FFF // 0x5000 = 20kB, set 1 smaller for the extra byte required by the ring buffer
 
-#define BLOCK_SIZE 512 /* max number of bytes to read from the buffer at once */
+#define BLOCK_SIZE 512 // Max number of bytes to read from the output file buffer at once
 
 FATFS fatfs[_VOLUMES];
 
 RingBuffer *ringBuff;
 
 SD_CardInfo cardinfo;
+
+uint32_t enterIdleTime; // Time that the idle state was entered
 
 void SysTick_Handler(void){
 	pb_loop();
@@ -76,6 +79,7 @@ void SysTick_Handler(void){
 			pb_shortPress(); // Clear pending button presses
 			Board_LED_Color(LED_GREEN);
 			system_state = STATE_IDLE;
+			enterIdleTime = Chip_RTC_GetCount(LPC_RTC);
 		}
 		break;
 	case STATE_DAQ:
@@ -100,6 +104,7 @@ void SysTick_Handler(void){
 			daq_stop();
 			Board_LED_Color(LED_GREEN);
 			system_state = STATE_IDLE;
+			enterIdleTime = Chip_RTC_GetCount(LPC_RTC);
 		}
 		break;
 	}
@@ -132,13 +137,11 @@ void SysTick_Handler(void){
 		}
 	}
 
-	// Shut down if PB is long pressed
-	if (pb_longPress()){
-		shutdown();
-	}
-
-	// Read battery voltage, shutdown if too low
-	if (read_vBat(10) < 3.0){
+	/* Shut down conditions */
+	if (pb_longPress() || 		// PB is long pressed
+		read_vBat(10) < 3.0 ||	// Low battery
+		(Chip_RTC_GetCount(LPC_RTC) - enterIdleTime > TIMEOUT_SECS && system_state == STATE_IDLE) ) // Idle time out
+	{
 		shutdown();
 	}
 }
@@ -194,6 +197,7 @@ int main(void) {
 
 	// Idle and run systick loop until triggered or plugged in as a USB device
 	system_state = STATE_IDLE;
+	enterIdleTime = Chip_RTC_GetCount(LPC_RTC);
 
     // Wait for interrupts
     while (1) {

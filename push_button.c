@@ -32,7 +32,7 @@ void pb_loop(void){
 }
 
 // Returns true if a short press has occurred
-int pb_shortPress(void){
+bool pb_shortPress(void){
 	if(pbShortPress){
 		pbShortPress = false;
 		return true;
@@ -41,7 +41,7 @@ int pb_shortPress(void){
 }
 
 // Returns true if a long press has occurred
-int pb_longPress(void){
+bool pb_longPress(void){
 	if(pbLongPress){
 		pbLongPress = false;
 		return true;
