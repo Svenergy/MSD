@@ -1,0 +1,61 @@
+FW version: v1.0
+
+**** UPDATE DATE+TIME [Y/N] ****
+N
+    DATE [YYYY-MM-DD]
+2015-02-16
+    TIME [HH:MM:SS]
+09:58:23
+
+
+**** UPDATE CONFIG [Y/N] ****
+N
+    USER HEADER [up to 100 characters]
+This header text appears at the top of every data file.
+
+    OUTPUT VOLTAGE [floating point]
+5.0
+    SAMPLE RATE [HZ, 1 - 10000]
+500
+    COMPACT DATA [Y/N]
+N
+
+    CHANNEL 1
+ENABLED         [Y/N]: Y
+RANGE          [5/24]: 5
+UNITS [up to 8 chars]: NEWTONS
+UNITS PER VOLT   [fp]: 123.456
+
+    CHANNEL 2
+ENABLED         [Y/N]: Y
+RANGE          [5/24]: 5
+UNITS [up to 8 chars]: NEWTONS
+UNITS PER VOLT   [fp]: 123.456
+
+    CHANNEL 3
+ENABLED         [Y/N]: Y
+RANGE          [5/24]: 5
+UNITS [up to 8 chars]: NEWTONS
+UNITS PER VOLT   [fp]: 123.456
+
+
+**** UPDATE CALIBRATION [Y/N] ****
+N
+
+    CHANNEL 1
+5V ZERO OFFSET  [fp]: 0.0
+5V LSB / VOLT   [fp]: 12812.75
+24V ZERO OFFSET [fp]: 32511.13
+24V LSB / VOLT  [fp]: 1341.402
+
+    CHANNEL 2
+5V ZERO OFFSET  [fp]: 0.0
+5V LSB / VOLT   [fp]: 12812.75
+24V ZERO OFFSET [fp]: 32511.13
+24V LSB / VOLT  [fp]: 1341.402
+
+    CHANNEL 3
+5V ZERO OFFSET  [fp]: 0.0
+5V LSB / VOLT   [fp]: 12812.75
+24V ZERO OFFSET [fp]: 32511.13
+24V LSB / VOLT  [fp]: 1341.402

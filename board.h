@@ -3,14 +3,20 @@
 
 #include "chip.h"
 
+/* Build options */
+//#define NO_USB
+//#define PRINT_DATA_UART
+
+/* End Build options */
+
 #ifdef DEBUG
 #include "uart.h"
 #endif
 
 /* Address of the base of each ram bank */
-#define RAM0_BASE 0x02000000 // 16kB
-#define RAM1_BASE 0x02004000 // 16kB
-#define RAM2_BASE 0x02008000 // 4kB
+#define RAM0_BASE (void *)0x02000000 // 16kB
+#define RAM1_BASE (void *)0x02004000 // 16kB
+#define RAM2_BASE (void *)0x02008000 // 4kB
 
 /* Set up board led colors */
 typedef enum {

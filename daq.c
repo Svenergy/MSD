@@ -4,7 +4,7 @@
 DAQ daq;
 
 // FatFS file object
-FIL file;
+FIL dataFile;
 
 // Time tracking
 static uint32_t sampleCount; // Count of samples taken in the current recording
@@ -165,7 +165,7 @@ void RIT_IRQHandler(void){
 
     /* String formatting takes 45000cc (625us) */
 	// Format time in output string
-	sampleStr_size += sprintf(sampleStr+sampleStr_size, "\n%u.%06u", seconds, (uint32_t)microseconds); // sprintf does not work with 64-bit ints
+	sampleStr_size += sprintf(sampleStr+sampleStr_size, "%u.%06u", seconds, (uint32_t)microseconds); // sprintf does not work with 64-bit ints
 
 	// Format samples in output string
 	for(i=0;i<3;i++){
@@ -174,9 +174,10 @@ void RIT_IRQHandler(void){
 			sampleStr_size += sprintf(sampleStr+sampleStr_size, ", %.5E", scaledVal[i]);
 		}
 	}
-	#ifdef DEBUG
-		//putLineUART(sampleStr);
-	#endif
+	sampleStr_size += sprintf(sampleStr+sampleStr_size, "\n");
+#if defined(DEBUG) && defined(PRINT_DATA_UART)
+	putLineUART(sampleStr);
+#endif
 	// Write string to ring buffer
 	RingBuffer_write(ringBuff, sampleStr);
 
@@ -185,8 +186,9 @@ void RIT_IRQHandler(void){
 }
 
 // Start acquiring data
-void daq_init(void){
-	int i;
+void daq_init(void)
+{
+	log_string("Acquisition start");
 
 	// Read config
 	daq_config_default();
@@ -199,6 +201,7 @@ void daq_init(void){
 
 	// Set up channel ranges in hardware mux
 #ifndef DEBUG
+	int i;
 	for(i=0;i<3;i++){ // This Kills the UART
 		Chip_GPIO_SetPinDIROutput(LPC_GPIO, 0, rsel_pins[i]);
 		Chip_GPIO_SetPinState(LPC_GPIO, 0, rsel_pins[i], daq.channel[i].range);
@@ -231,7 +234,7 @@ void daq_init(void){
 	// 0 the sample count
 	sampleCount = 0;
 
-	// TODO: get actual start time from RTC
+	// Get actual start time from RTC
 	startTime = Chip_RTC_GetCount(LPC_RTC);
 
 	// Set up sampling interrupt using RIT
@@ -260,17 +263,21 @@ void daq_header(void){
 	char headerStr[80];
 	uint8_t headerStr_size = 0;
 
-	/* Make the file */
-	f_open(&file,"data.txt",FA_CREATE_ALWAYS | FA_WRITE);
+	/* Make the data file with time-stamped file name */
+	time_t t = Chip_RTC_GetCount(LPC_RTC);
+	struct tm * tm;
+	tm = localtime(&t);
+	char fn[40];
+	strftime (fn,40,"%Y-%m-%d_%H-%M-%S_data.txt",tm);
+	f_open(&dataFile,fn,FA_CREATE_ALWAYS | FA_WRITE);
 
 	/* User comment */
 	// Ex. "User header comment"
-	#ifdef DEBUG
-		putLineUART("\n");
-		putLineUART(daq.user_comment);
-	#endif
+#if defined(DEBUG) && defined(PRINT_DATA_UART)
+	putLineUART(daq.user_comment);
+#endif
 	// Write string to file buffer
-	f_puts(daq.user_comment,&file);
+	f_puts(daq.user_comment,&dataFile);
 
 	/* Channel labels */
 	// Ex. "time, ch1, ch2, ch3"
@@ -280,11 +287,11 @@ void daq_header(void){
 			headerStr_size += sprintf(headerStr+headerStr_size, ", ch%d", i+1);
 		}
 	}
-	#ifdef DEBUG
-		putLineUART(headerStr);
-	#endif
+#if defined(DEBUG) && defined(PRINT_DATA_UART)
+	putLineUART(headerStr);
+#endif
 	// Write string to file buffer
-	f_puts(headerStr, &file);
+	f_puts(headerStr, &dataFile);
 
 	/* Units */
 	// Ex. "seconds, volts, volts, volts"
@@ -294,11 +301,12 @@ void daq_header(void){
 			headerStr_size += sprintf(headerStr+headerStr_size, ", %s", daq.channel[i].unit_name);
 		}
 	}
-	#ifdef DEBUG
-		putLineUART(headerStr);
-	#endif
+	headerStr_size += sprintf(headerStr+headerStr_size, "\n");
+#if defined(DEBUG) && defined(PRINT_DATA_UART)
+	putLineUART(headerStr);
+#endif
 	// Write string to file buffer
-	f_puts(headerStr, &file);
+	f_puts(headerStr, &dataFile);
 }
 
 // Stop acquiring data
@@ -313,8 +321,10 @@ void daq_stop(void){
 	// Disable Vout using ~SHDN
 	Chip_GPIO_SetPinState(LPC_GPIO, 0, VOUT_N_SHDN, false);
 
+	log_string("Acquisition stop");
+
 	// Write all buffered data to disk
-	f_close(&file);
+	f_close(&dataFile);
 }
 
 // Limit configuration values to valid ranges
@@ -362,8 +372,8 @@ void daq_config_default(void){
 		strcpy(daq.channel[i].unit_name, "Volts");	// name of channel units
 
 		daq.channel[i].v5_zero_offset = 0.0;		// theoretical value of raw 16-bit sample for 0 input voltage
-		daq.channel[i].v5_LSB_per_volt = 12812.749;	// theoretical sensitivity of reading in LSB / volt = (1 << 16) / (4.096 * ( (402+100) / 402 ))
-		daq.channel[i].v24_zero_offset = 32511.134;	// theoretical value of raw 16-bit sample for 0 input voltage = (1 << 16) * ( (1/(1/100+1/402+1/21)) / (1/(1/100+1/402+1/21) + 16.9) )
+		daq.channel[i].v5_LSB_per_volt = 12812.75;	// theoretical sensitivity of reading in LSB / volt = (1 << 16) / (4.096 * ( (402+100) / 402 ))
+		daq.channel[i].v24_zero_offset = 32511.13;	// theoretical value of raw 16-bit sample for 0 input voltage = (1 << 16) * ( (1/(1/100+1/402+1/21)) / (1/(1/100+1/402+1/21) + 16.9) )
 		daq.channel[i].v24_LSB_per_volt = 1341.402;	// theoretical sensitivity of reading in LSB / volt = ((1 << 16)/4.096) * (1/(1/100+1/402+1/21+1/16.9)) / 100
 	}
 

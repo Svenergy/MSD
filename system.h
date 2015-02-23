@@ -5,6 +5,7 @@
 #include "ff.h"
 #include "msc_main.h"
 #include "daq.h"
+#include "log.h"
 
 typedef enum {
 	STATE_IDLE,

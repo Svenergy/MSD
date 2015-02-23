@@ -2,6 +2,7 @@
 #define __DAQ_
 
 #include <string.h>
+#include <time.h>
 
 #include "board.h"
 #include "adc_spi.h"
@@ -10,6 +11,7 @@
 #include "ff.h"
 #include "ring_buff.h"
 #include "sys_error.h"
+#include "log.h"
 
 #define clamp(amt,low,high) ((amt)<(low)?(low):((amt)>(high)?(high):(amt)))
 
@@ -50,7 +52,7 @@ extern uint8_t rsel_pins[3];
 
 // FatFS volume and file
 extern FATFS fatfs[_VOLUMES];
-extern FIL file;
+extern FIL dataFile;
 
 // write buffer
 extern struct RingBuffer *ringBuff;

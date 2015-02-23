@@ -4,6 +4,8 @@
 #include "board.h"
 #include "delay.h"
 #include "system.h"
+#include "log.h"
+
 
 typedef enum {
 	ERROR_UNKNOWN		= 0,

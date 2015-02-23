@@ -9,7 +9,7 @@ void shutdown(void){
 // Safely stop all running system processes
 void system_halt(void){
 	// Stop interrupts
-	void __disable_irq (void);
+	void __disable_irq(void);
 
 	// Shut down procedures
 	if(system_state == STATE_DAQ){
@@ -19,20 +19,20 @@ void system_halt(void){
 	}
 
 	Board_LED_Color(LED_OFF);
-
-	// Unmount file system
-	f_mount(NULL,"",0);
-
-	#ifdef DEBUG
-		// Send Shutdown debug string
-		putLineUART("\nSHUTDOWN");
-		// Wait for UART to finish transmission
-		while ( !(Chip_UART_GetStatus(LPC_USART0)&UART_STAT_TXIDLE) ){};
-	#endif
 }
 
 // Turn off system power
 void system_power_off(void){
+	// Log shutdown event
+	log_string("Shutdown");
+#ifdef DEBUG
+	// Wait for UART to finish transmission
+	while ( !(Chip_UART_GetStatus(LPC_USART0)&UART_STAT_TXIDLE) ){};
+#endif
+
+	// Unmount file system
+	f_mount(NULL,"",0);
+
 	// Turn system power off
 	Chip_GPIO_SetPinState(LPC_GPIO, 0, PWR_ON_OUT, 0);
 	// Wait for user to release power button

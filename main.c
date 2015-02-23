@@ -17,6 +17,7 @@ BLUE = error
 */
 
 #include <stdio.h>
+#include <time.h>
 
 #include "board.h"
 #include "daq.h"
@@ -28,6 +29,8 @@ BLUE = error
 #include "ring_buff.h"
 #include "sys_error.h"
 #include "system.h"
+#include "config.h"
+#include "log.h"
 
 #define TICKRATE_HZ1 (100)	/* 100 ticks per second */
 
@@ -47,6 +50,7 @@ void SysTick_Handler(void){
 
 	switch(system_state){
 	case STATE_IDLE:
+#ifndef NO_USB
 		// If VBUS is connected and SD card is ready, try to connect as MSC
 		if (Chip_GPIO_GetPinState(LPC_GPIO, 0, VBUS) && sd_state == SD_READY){
 			if (msc_init() == MSC_OK){
@@ -56,6 +60,7 @@ void SysTick_Handler(void){
 				error(ERROR_MSC_INIT);
 			}
 		}
+#endif
 		// If user has short pressed PB and SD card is ready, initiate acquisition
 		if (pb_shortPress() && sd_state == SD_READY){
 			Board_LED_Color(LED_PURPLE);
@@ -83,10 +88,9 @@ void SysTick_Handler(void){
 		do{
 			br = RingBuffer_read(ringBuff, data, BLOCK_SIZE);
 			FRESULT errorCode;
-			if((errorCode = f_write(&file, data, br, &bw)) != FR_OK){
+			if((errorCode = f_write(&dataFile, data, br, &bw)) != FR_OK){
 				error(ERROR_F_WRITE);
 			}
-
 		}while(br == BLOCK_SIZE);
 		Board_LED_Color(LED_RED);
 
@@ -108,8 +112,8 @@ void SysTick_Handler(void){
 	}else{
 		// Card in
 		if (sd_state == SD_OUT){
-			// Delay 200ms to let connections and power stabilize
-			DWT_Delay(200000);
+			// Delay 100ms to let connections and power stabilize
+			DWT_Delay(100000);
 			if(init_sd_spi(&cardinfo) != SD_OK) {
 				error(ERROR_SD_INIT);
 			}
@@ -144,26 +148,38 @@ int main(void) {
 
 	Board_Init();
 
-	#ifdef DEBUG
-		// Set up UART for debug
-		init_uart(115200);
-		putLineUART("\nSTARTUP");
-	#endif
+	//setTime("2015-02-22 20:29:00");
 
-	// Set up ADC for reading battery voltage
-	read_vBat_setup();
-
-	/* Enable and setup SysTick Timer at a periodic rate */
-	Chip_Clock_SetSysTickClockDiv(1);
-	sysTickRate = Chip_Clock_GetSysTickClockRate();
-	SysTick_Config(sysTickRate / TICKRATE_HZ1);
+#ifdef DEBUG
+	// Set up UART for debug
+	init_uart(115200);
+	putLineUART("\n");
+#endif
 
 	// Set up clocking for SD lib
 	SystemCoreClockUpdate();
 	DWT_Init();
 
-	// Sets up the FatFS Object
+	// Set up the FatFS Object
 	f_mount(&fatfs,"",0);
+
+	// Turn on SD card power
+	Chip_GPIO_SetPinDIROutput(LPC_GPIO, 0, SD_POWER);
+	Chip_GPIO_SetPinState(LPC_GPIO, 0, SD_POWER, 0);
+
+	// Initialize SD card
+	Board_LED_Color(LED_CYAN);
+	if(init_sd_spi(&cardinfo) != SD_OK) {
+		error(ERROR_SD_INIT);
+	}
+	sd_state = SD_READY;
+	Board_LED_Color(LED_GREEN);
+
+	// Log startup
+	log_string("Startup");
+
+	// Set up ADC for reading battery voltage
+	read_vBat_setup();
 
 	// Initialize ring buffer used to buffer writes the data file
 	ringBuff = RingBuffer_init_with_buf(WRITE_BUFF_SIZE, RAM1_BASE);
@@ -171,13 +187,10 @@ int main(void) {
 	// Initialize push button
 	pb_init(TICKRATE_HZ1);
 
-	// Set SD state out to force card init in sysTick loop
-	sd_state = SD_OUT;
-	Board_LED_Color(LED_CYAN);
-
-	// Turn on SD card power
-	Chip_GPIO_SetPinDIROutput(LPC_GPIO, 0, SD_POWER);
-	Chip_GPIO_SetPinState(LPC_GPIO, 0, SD_POWER, 0);
+	// Enable and setup SysTick Timer at a periodic rate
+	Chip_Clock_SetSysTickClockDiv(1);
+	sysTickRate = Chip_Clock_GetSysTickClockRate();
+	SysTick_Config(sysTickRate / TICKRATE_HZ1);
 
 	// Idle and run systick loop until triggered or plugged in as a USB device
 	system_state = STATE_IDLE;
