@@ -25,6 +25,9 @@ SD_STATE sd_state;
 // Halt and power off
 void shutdown(void);
 
+// Halt and power off with message
+void shutdown_message(char *message);
+
 // Safely stop all running system processes
 void system_halt(void);
 

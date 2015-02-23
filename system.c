@@ -6,6 +6,13 @@ void shutdown(void){
 	system_power_off();
 }
 
+// Halt and power off with message
+void shutdown_message(char *message){
+	system_halt();
+	log_string(message);
+	system_power_off();
+}
+
 // Safely stop all running system processes
 void system_halt(void){
 	// Stop interrupts
@@ -16,6 +23,7 @@ void system_halt(void){
 		daq_stop();
 	} else if(system_state == STATE_MSC){
 		msc_stop();
+		f_mount(&fatfs,"",0); // mount file system
 	}
 
 	Board_LED_Color(LED_OFF);

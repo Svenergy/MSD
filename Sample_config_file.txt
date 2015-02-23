@@ -17,6 +17,8 @@ This header text appears at the top of every data file.
 5.0
     SAMPLE RATE [HZ, 1 - 10000]
 500
+    TRIGGER DELAY [SEC, 0 - 100000]
+0
     COMPACT DATA [Y/N]
 N
 

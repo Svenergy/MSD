@@ -33,7 +33,7 @@ BLUE = error
 #include "log.h"
 
 #define TICKRATE_HZ1 (100)	// 100 ticks per second
-#define TIMEOUT_SECS (600)	// Shut down after X seconds in Idle
+#define TIMEOUT_SECS (300)	// Shut down after X seconds in Idle
 
 /* Size of the output file write buffer */
 #define WRITE_BUFF_SIZE 0x4FFF // 0x5000 = 20kB, set 1 smaller for the extra byte required by the ring buffer
@@ -56,6 +56,7 @@ void SysTick_Handler(void){
 #ifndef NO_USB
 		// If VBUS is connected and SD card is ready, try to connect as MSC
 		if (Chip_GPIO_GetPinState(LPC_GPIO, 0, VBUS) && sd_state == SD_READY){
+			f_mount(NULL,"",0); // unmount file system
 			if (msc_init() == MSC_OK){
 				Board_LED_Color(LED_YELLOW);
 				system_state = STATE_MSC;
@@ -78,6 +79,7 @@ void SysTick_Handler(void){
 			msc_stop();
 			pb_shortPress(); // Clear pending button presses
 			Board_LED_Color(LED_GREEN);
+			f_mount(&fatfs,"",0); // mount file system
 			system_state = STATE_IDLE;
 			enterIdleTime = Chip_RTC_GetCount(LPC_RTC);
 		}
@@ -138,11 +140,12 @@ void SysTick_Handler(void){
 	}
 
 	/* Shut down conditions */
-	if (pb_longPress() || 		// PB is long pressed
-		read_vBat(10) < 3.0 ||	// Low battery
-		(Chip_RTC_GetCount(LPC_RTC) - enterIdleTime > TIMEOUT_SECS && system_state == STATE_IDLE) ) // Idle time out
-	{
-		shutdown();
+	if (pb_longPress()){
+		shutdown_message("Power Button Pressed");
+	} else if (read_vBat(10) < 3.0){
+		shutdown_message("Low Battery");
+	} else if ((Chip_RTC_GetCount(LPC_RTC) - enterIdleTime > TIMEOUT_SECS && system_state == STATE_IDLE) ){
+		shutdown_message("Idle Time Out");
 	}
 }
 
