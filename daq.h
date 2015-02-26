@@ -53,7 +53,7 @@ typedef struct DAQ {
 extern uint8_t rsel_pins[3];
 
 // FatFS volume and file
-extern FATFS fatfs[_VOLUMES];
+extern FATFS *fatfs;
 extern FIL dataFile;
 
 // write buffer

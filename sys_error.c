@@ -19,6 +19,12 @@ void error(ERROR_CODE errorCode){
 		return;
 	inError = true;
 
+	// Reset SD card
+	sd_reset(&cardinfo);
+
+	// Clear file system locks to allow writing error code to log
+	ff_rel_grant(fatfs->sobj);
+
 	// Write error code to log file
 	log_string(errorString[errorCode]);
 

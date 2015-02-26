@@ -202,6 +202,7 @@ typedef struct
 } SD_CardInfo;
 
 SD_ERROR init_sd_spi(SD_CardInfo *cardinfo);
+SD_ERROR sd_reset(SD_CardInfo *cardinfo);
 uint8_t sd_read_block(uint32_t blockaddr,uint8_t *data);
 uint8_t sd_read_multiple_blocks(uint32_t blockaddr, uint32_t blockcount, uint8_t *data);
 uint8_t sd_write_block(uint32_t blockaddr,uint8_t *data);

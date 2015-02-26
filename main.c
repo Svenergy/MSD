@@ -38,7 +38,7 @@ BLUE = error
 /* Size of the output file write buffer */
 #define WRITE_BUFF_SIZE 0x4FFF // 0x5000 = 20kB, set 1 smaller for the extra byte required by the ring buffer
 
-FATFS fatfs[_VOLUMES];
+FATFS *fatfs;
 
 RingBuffer *ringBuff;
 
@@ -156,13 +156,9 @@ int main(void) {
 	// Set up the FatFS Object
 	f_mount(&fatfs,"",0);
 
-	// Turn on SD card power
-	Chip_GPIO_SetPinDIROutput(LPC_GPIO, 0, SD_POWER);
-	Chip_GPIO_SetPinState(LPC_GPIO, 0, SD_POWER, 0);
-
 	// Initialize SD card
 	Board_LED_Color(LED_CYAN);
-	if(init_sd_spi(&cardinfo) != SD_OK) {
+	if(sd_reset(&cardinfo) != SD_OK) {
 		error(ERROR_SD_INIT);
 	}
 	sd_state = SD_READY;

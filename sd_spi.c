@@ -347,6 +347,18 @@ SD_ERROR init_sd_spi(SD_CardInfo *cardinfo) {
   return SD_OK;
 }
 
+// Hard reset power and re-initialize
+SD_ERROR sd_reset(SD_CardInfo *cardinfo){
+	semaphore_Give(&sd_lock);
+	//Hard reset
+	Chip_GPIO_SetPinDIROutput(LPC_GPIO, 0, SD_POWER);
+	Chip_GPIO_SetPinState(LPC_GPIO, 0, SD_POWER, 1);
+	DWT_Delay(100000); //200ms delay
+	Chip_GPIO_SetPinState(LPC_GPIO, 0, SD_POWER, 0);
+	// Initialize SD card
+	return init_sd_spi(cardinfo);
+}
+
 uint8_t sd_read_block (uint32_t blockaddr,uint8_t *data) {
   if(!semaphore_Take(&sd_lock, SD_CMD_TIMEOUT)){
 	  return ERROR_AQUIRE_LOCK_TIMEOUT;

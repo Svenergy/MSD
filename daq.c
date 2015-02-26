@@ -337,10 +337,10 @@ void daq_stop(void){
 void daq_writeBuffer(void){
 	int32_t br;
 	UINT bw;
+	FRESULT errorCode;
 	char data[BLOCK_SIZE];
 	while(RingBuffer_getSize(ringBuff) >= BLOCK_SIZE){ // Only write in units of BLOCK_SIZE
 		br = RingBuffer_read(ringBuff, data, BLOCK_SIZE);
-		FRESULT errorCode;
 		if((errorCode = f_write(&dataFile, data, br, &bw)) != FR_OK){
 			error(ERROR_F_WRITE);
 		}
@@ -351,10 +351,10 @@ void daq_writeBuffer(void){
 void daq_flushBuffer(void){
 	int32_t br;
 	UINT bw;
+	FRESULT errorCode;
 	char data[BLOCK_SIZE];
 	do{
 		br = RingBuffer_read(ringBuff, data, BLOCK_SIZE);
-		FRESULT errorCode;
 		if((errorCode = f_write(&dataFile, data, br, &bw)) != FR_OK){
 			error(ERROR_F_WRITE);
 		}

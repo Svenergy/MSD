@@ -5,6 +5,8 @@
 #include "delay.h"
 #include "system.h"
 #include "log.h"
+#include "ff.h"
+#include "sd_spi.h"
 
 typedef enum {
 	ERROR_UNKNOWN		= 0,
@@ -16,6 +18,10 @@ typedef enum {
 	ERROR_SD_INIT		= 6,
 	ERROR_SAMPLE_TIME	= 7,
 } ERROR_CODE;
+
+extern FATFS *fatfs;
+
+extern SD_CardInfo cardinfo;
 
 void error(ERROR_CODE code);
 

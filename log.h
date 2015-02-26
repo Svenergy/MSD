@@ -13,7 +13,7 @@
 #include "ff.h"
 
 // FatFS volume
-extern FATFS fatfs[_VOLUMES];
+extern FATFS *fatfs;
 
 // Append the string to the log file with a time stamp, print to UART if debug enabled
 void log_string(char *logString);
