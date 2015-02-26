@@ -12,6 +12,7 @@
 
 #include "delay.h"
 #include "board.h"
+#include "semphr.h"
 
 #include <stdint.h>
 
@@ -35,7 +36,8 @@ typedef enum {
   ERROR_SEND_CSD_TIMEOUT,
   ERROR_SEND_CSD_TOKEN_TIMEOUT,
   ERROR_SEND_OP_COND_TIMEOUT,
-  ERROR_SEND_OP_COND_RESPONSE  
+  ERROR_SEND_OP_COND_RESPONSE,
+  ERROR_AQUIRE_LOCK_TIMEOUT
 } SD_ERROR;
 
 typedef enum {

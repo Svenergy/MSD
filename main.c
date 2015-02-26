@@ -38,8 +38,6 @@ BLUE = error
 /* Size of the output file write buffer */
 #define WRITE_BUFF_SIZE 0x4FFF // 0x5000 = 20kB, set 1 smaller for the extra byte required by the ring buffer
 
-#define BLOCK_SIZE 512 // Max number of bytes to read from the output file buffer at once
-
 FATFS fatfs[_VOLUMES];
 
 RingBuffer *ringBuff;
@@ -85,19 +83,8 @@ void SysTick_Handler(void){
 		}
 		break;
 	case STATE_DAQ:
-		; // prevents "A label can only be followed by a statement" error
-		// Write from buffer to file
-		int32_t br;
-		UINT bw;
-		char data[BLOCK_SIZE];
 		Board_LED_Color(LED_YELLOW);
-		do{
-			br = RingBuffer_read(ringBuff, data, BLOCK_SIZE);
-			FRESULT errorCode;
-			if((errorCode = f_write(&dataFile, data, br, &bw)) != FR_OK){
-				error(ERROR_F_WRITE);
-			}
-		}while(br == BLOCK_SIZE);
+		daq_writeBuffer();	// Write data from buffer to file
 		Board_LED_Color(LED_RED);
 
 		// If user has short pressed PB to stop acquisition
@@ -154,7 +141,7 @@ int main(void) {
 
 	Board_Init();
 
-	//setTime("2015-02-22 20:29:00");
+	//setTime("2015-02-24 4:41:00");
 
 #ifdef DEBUG
 	// Set up UART for debug
@@ -187,8 +174,8 @@ int main(void) {
 	// Set up ADC for reading battery voltage
 	read_vBat_setup();
 
-	// Initialize ring buffer used to buffer writes the data file
-	ringBuff = RingBuffer_init_with_buf(WRITE_BUFF_SIZE, RAM1_BASE);
+	// Initialize ring buffer used to buffer writes to the data file
+	ringBuff = RingBuffer_initWithBuffer(WRITE_BUFF_SIZE, RAM1_BASE);
 
 	// Initialize push button
 	pb_init(TICKRATE_HZ1);

@@ -102,11 +102,8 @@ DRESULT disk_write (
 			bc++;
 			uint32_t elapsed_time = DWT_Get() - start_time;
 			char b[20];
-			//if(elapsed_time > 250000){ //only print blocks that take longer than normal
-				sprintf(b, "\n%d, %d\n", bc, elapsed_time);
-				putLineUART(b);
-			//}
-
+			sprintf(b, "%d\n", elapsed_time);
+			putLineUART(b);
 #endif
 			return RES_OK;
 		} else {
@@ -130,10 +127,8 @@ DRESULT disk_write (
 		bc++;
 		uint32_t elapsed_time = DWT_Get() - start_time;
 		char b[20];
-		//if(elapsed_time > 250000){ //only print blocks that take longer than normal
-			sprintf(b, "\n%d, %d\n", bc, elapsed_time);
-			putLineUART(b);
-		//}
+		sprintf(b, "%d, %d\n", bc, elapsed_time);
+		putLineUART(b);
 #endif
 		return RES_OK;
 		/* Write Multiple Block Function */

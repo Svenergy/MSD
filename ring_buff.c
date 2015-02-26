@@ -11,7 +11,7 @@ RingBuffer *RingBuffer_init(int32_t length){
 }
 
 // Return a ring buffer struct, using a user set buffer
-RingBuffer *RingBuffer_init_with_buf(int32_t length, char *pBuffer){
+RingBuffer *RingBuffer_initWithBuffer(int32_t length, char *pBuffer){
     RingBuffer *buffer = malloc(sizeof(RingBuffer));
     buffer->length  = length + 1;
     buffer->start = 0;
@@ -83,6 +83,11 @@ int32_t RingBuffer_read(RingBuffer *b, char *data, int32_t count){
 }
 
 // Return the size of the current data in the buffer
-int32_t RingBuffer_get_size(RingBuffer *b){
+int32_t RingBuffer_getSize(RingBuffer *b){
 	return (b->end - b->start + b->length) % b->length;
+}
+
+// Clear the buffer
+void RingBuffer_clear(RingBuffer *b){
+	b->end = b->start = 0;
 }

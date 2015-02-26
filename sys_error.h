@@ -6,7 +6,6 @@
 #include "system.h"
 #include "log.h"
 
-
 typedef enum {
 	ERROR_UNKNOWN		= 0,
 	ERROR_F_WRITE		= 1,

@@ -53,18 +53,19 @@ static void Init_UART0_PinMux(void) {
   Chip_SWM_MovablePortPinAssign(SWM_UART0_TXD_O, 0, RSEL1);
 }
 
-static uint8_t setupUART(void) {
+static uint8_t setupUART(uint32_t baud) {
   
   uint32_t ret_value;
 
-  /* 115.2KBPS, 8N1, ASYNC mode, no errors, clock filled in later */
+  /* 8N1, ASYNC mode, no errors, clock filled in later */
   UART_CONFIG_T cfg = {
-    0,        /* U_PCLK frequency in Hz */
-    115200,    /* Baud Rate in Hz */
-    1,        /* 8N1 */
-    0,        /* Asynchronous Mode */
-    NO_ERR_EN  /* Enable No Errors */
+    0,			/* U_PCLK frequency in Hz */
+    0,			/* Baud Rate in Hz */
+    1,			/* 8N1 */
+    0,			/* Asynchronous Mode */
+    NO_ERR_EN	/* Enable No Errors */
   };
+  cfg.baudrate_in_hz = baud;
 
   /* Initialize UART0 */
   Chip_UART_Init(LPC_USART0);
@@ -98,5 +99,5 @@ uint8_t init_uart(uint32_t baud) {
   
   Init_UART0_PinMux();
   Chip_Clock_SetUARTBaseClockRate((baud * 128), true);
-  return setupUART();
+  return setupUART(baud);
 }

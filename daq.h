@@ -13,6 +13,8 @@
 #include "sys_error.h"
 #include "log.h"
 
+#define BLOCK_SIZE 512 // Size of blocks to write to the file system
+
 #define clamp(amt,low,high) ((amt)<(low)?(low):((amt)>(high)?(high):(amt)))
 
 // Voltage range type
@@ -69,13 +71,19 @@ void daq_header(void);
 // Stop acquiring data
 void daq_stop(void);
 
+// Write the ring buffer to disk in blocks
+void daq_writeBuffer(void);
+
+// Flush the ring buffer to disk
+void daq_flushBuffer(void);
+
 // Limit configuration values to valid ranges
-void daq_config_check(void);
+void daq_configCheck(void);
 
 // Set channel configuration from the config file on the SD card
-void daq_config_from_file(void);
+void daq_configFromFile(void);
 
 // Set channel configuration defaults
-void daq_config_default(void);
+void daq_configDefault(void);
 
 #endif /* __DAQ_ */

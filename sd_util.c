@@ -89,6 +89,9 @@ SD_ERROR sd_print_info(void) {
     case SD_TIMEOUT:
       sprintf(buffer,"Error: SD_TIMEOUT\r\n");
     break;
+    case ERROR_AQUIRE_LOCK_TIMEOUT:
+	  sprintf(buffer,"Error: ERROR_AQUIRE_LOCK_TIMEOUT\r\n");
+	break;
   }
   putLineUART(buffer);
 

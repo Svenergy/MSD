@@ -17,7 +17,7 @@ typedef struct RingBuffer{
 RingBuffer *RingBuffer_init(int32_t length);
 
 // Return a ring buffer struct, using a user set buffer
-RingBuffer *RingBuffer_init_with_buf(int32_t length, char *pBuffer);
+RingBuffer *RingBuffer_initWithBuffer(int32_t length, char *pBuffer);
 
 // Free memory used by the buffer
 void RingBuffer_destroy(RingBuffer *buffer);
@@ -29,6 +29,9 @@ void RingBuffer_write(RingBuffer *buffer, char *data);
 int32_t RingBuffer_read(RingBuffer *b, char *data, int32_t count);
 
 // Return the size of the current data in the buffer
-int32_t RingBuffer_get_size(RingBuffer *b);
+int32_t RingBuffer_getSize(RingBuffer *b);
+
+// Clear the buffer
+void RingBuffer_clear(RingBuffer *b);
 
 #endif /* __RING_BUFF_ */

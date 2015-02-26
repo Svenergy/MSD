@@ -7,10 +7,10 @@ DAQ daq;
 FIL dataFile;
 
 // Time tracking
-static uint32_t sampleCount; // Count of samples taken in the current recording
-static uint32_t startTime; // Absolute start time in seconds
-static uint32_t dwt_lastTime; // Time of the last sample according to the DWT timer, used to measure sampling integral error and jitter
-static int64_t dwt_elapsedTime; // Total sampling elapsed time according to the DWT timer
+static volatile uint32_t sampleCount; // Count of samples taken in the current recording
+static volatile uint32_t startTime; // Absolute start time in seconds
+static volatile uint32_t dwt_lastTime; // Time of the last sample according to the DWT timer, used to measure sampling integral error and jitter
+static volatile int64_t dwt_elapsedTime; // Total sampling elapsed time according to the DWT timer
 
 // Flag set by SCT0_IRQHandler, accessed by RIT_IRQHandler
 static volatile bool adcUsed;
@@ -165,7 +165,7 @@ void RIT_IRQHandler(void){
 
     /* String formatting takes 45000cc (625us) */
 	// Format time in output string
-	sampleStr_size += sprintf(sampleStr+sampleStr_size, "%u.%06u", seconds, (uint32_t)microseconds); // sprintf does not work with 64-bit ints
+	sampleStr_size += sprintf(sampleStr+sampleStr_size, "%u.%04u", seconds, (uint32_t)microseconds/100); // sprintf does not work with 64-bit ints
 
 	// Format samples in output string
 	for(i=0;i<3;i++){
@@ -191,10 +191,10 @@ void daq_init(void)
 	log_string("Acquisition start");
 
 	// Read config
-	daq_config_default();
+	daq_configDefault();
 
 	// Limit config values to valid values
-	daq_config_check();
+	daq_configCheck();
 
 	// Set up ADC
 	adc_spi_setup();
@@ -231,11 +231,18 @@ void daq_init(void)
 	// Write data file header
 	daq_header();
 
+	// Clear the output buffer
+	RingBuffer_clear(ringBuff);
+
 	// 0 the sample count
 	sampleCount = 0;
 
 	// Get actual start time from RTC
-	startTime = Chip_RTC_GetCount(LPC_RTC);
+	startTime = 0; //Chip_RTC_GetCount(LPC_RTC);
+
+	// Start time according to DWT timer
+	dwt_lastTime = DWT_Get();
+	dwt_elapsedTime = -(72000000 / daq.sample_rate);
 
 	// Set up sampling interrupt using RIT
 	Chip_RIT_Init(LPC_RITIMER);
@@ -251,10 +258,6 @@ void daq_init(void)
 
 	NVIC_EnableIRQ(RITIMER_IRQn);
 	NVIC_SetPriority(RITIMER_IRQn, 0x01); // Set to second highest priority to ensure sample timing accuracy
-
-	// Start time according to DWT timer
-	dwt_lastTime = DWT_Get();
-	dwt_elapsedTime = -(72000000 / daq.sample_rate);
 }
 
 // Write data file header
@@ -323,12 +326,43 @@ void daq_stop(void){
 
 	log_string("Acquisition stop");
 
+	// flush ring buffer to disk
+	daq_flushBuffer();
+
 	// Write all buffered data to disk
 	f_close(&dataFile);
 }
 
+// Write the ring buffer to disk in blocks
+void daq_writeBuffer(void){
+	int32_t br;
+	UINT bw;
+	char data[BLOCK_SIZE];
+	while(RingBuffer_getSize(ringBuff) >= BLOCK_SIZE){ // Only write in units of BLOCK_SIZE
+		br = RingBuffer_read(ringBuff, data, BLOCK_SIZE);
+		FRESULT errorCode;
+		if((errorCode = f_write(&dataFile, data, br, &bw)) != FR_OK){
+			error(ERROR_F_WRITE);
+		}
+	};
+}
+
+// Flush the ring buffer to disk
+void daq_flushBuffer(void){
+	int32_t br;
+	UINT bw;
+	char data[BLOCK_SIZE];
+	do{
+		br = RingBuffer_read(ringBuff, data, BLOCK_SIZE);
+		FRESULT errorCode;
+		if((errorCode = f_write(&dataFile, data, br, &bw)) != FR_OK){
+			error(ERROR_F_WRITE);
+		}
+	}while(br == BLOCK_SIZE);
+}
+
 // Limit configuration values to valid ranges
-void daq_config_check(void){
+void daq_configCheck(void){
 	daq.sample_rate = clamp(daq.sample_rate, 1, 10000);
 
 	// Force sample rate to be in the set [1,2,5]*10^k
@@ -349,7 +383,7 @@ void daq_config_check(void){
 }
 
 // Set channel configuration from the config file on the SD card
-void daq_config_from_file(void){
+void daq_configFromFile(void){
 	/* Read SD card config file
 	 * Parse Data
 	 * Set Channel_Config
@@ -361,13 +395,13 @@ void daq_config_from_file(void){
 }
 
 // Set channel configuration defaults
-void daq_config_default(void){
+void daq_configDefault(void){
 	int i;
 
 	// Channel_Config defaults
 	for(i=0;i<3;i++){
-		daq.channel[i].enable = true;				// enable channel
-		daq.channel[i].range = V5;					// 0-5v input range
+		daq.channel[i].enable = false;				// enable channel
+		daq.channel[i].range = V24;					// 0-5v input range
 		daq.channel[i].units_per_volt = 1.0;		// output in volts
 		strcpy(daq.channel[i].unit_name, "Volts");	// name of channel units
 
@@ -376,9 +410,10 @@ void daq_config_default(void){
 		daq.channel[i].v24_zero_offset = 32511.13;	// theoretical value of raw 16-bit sample for 0 input voltage = (1 << 16) * ( (1/(1/100+1/402+1/21)) / (1/(1/100+1/402+1/21) + 16.9) )
 		daq.channel[i].v24_LSB_per_volt = 1341.402;	// theoretical sensitivity of reading in LSB / volt = ((1 << 16)/4.096) * (1/(1/100+1/402+1/21+1/16.9)) / 100
 	}
+	daq.channel[2].enable = true;
 
 	// Sample rate in Hz
-	daq.sample_rate = 200;
+	daq.sample_rate = 1000;
 
 	// Vout = 5v
 	daq.mv_out = 5000;

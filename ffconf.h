@@ -97,7 +97,7 @@
 /   1    - ASCII (No extended character. Valid for only non-LFN configuration.) */
 
 
-#define	_USE_LFN	1
+#define	_USE_LFN	2
 #define	_MAX_LFN	255
 /* The _USE_LFN option switches the LFN feature.
 /
@@ -225,9 +225,9 @@
 /      lock feature is independent of re-entrancy. */
 
 
-#define _FS_REENTRANT	0
-#define _FS_TIMEOUT		1000
-#define	_SYNC_t			HANDLE
+#define _FS_REENTRANT	1
+#define _FS_TIMEOUT		(SystemCoreClock/2)
+#define	_SYNC_t			Semaphore_t
 /* The _FS_REENTRANT option switches the re-entrancy (thread safe) of the FatFs
 /  module itself. Note that regardless of this option, file access to different
 /  volume is always re-entrant and volume control functions, f_mount(), f_mkfs()

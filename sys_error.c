@@ -1,5 +1,7 @@
 #include "sys_error.h"
 
+volatile bool inError; // Set when handling an error to prevent recursion
+
 const char* const errorString[] = {
 	"ERROR_UNKNOWN",
 	"ERROR_F_WRITE",
@@ -12,6 +14,11 @@ const char* const errorString[] = {
 };
 
 void error(ERROR_CODE errorCode){
+	// Only handle the first Error
+	if(inError)
+		return;
+	inError = true;
+
 	// Write error code to log file
 	log_string(errorString[errorCode]);
 
