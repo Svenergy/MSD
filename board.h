@@ -4,8 +4,9 @@
 #include "chip.h"
 
 /* Build options */
-//#define NO_USB
-//#define PRINT_DATA_UART
+
+#define NO_USB
+#define PRINT_DATA_UART
 
 /* End Build options */
 

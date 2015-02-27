@@ -23,10 +23,13 @@ RingBuffer *RingBuffer_initWithBuffer(int32_t length, char *pBuffer);
 void RingBuffer_destroy(RingBuffer *buffer);
 
 // Write string into the ring buffer
-void RingBuffer_write(RingBuffer *buffer, char *data);
+void RingBuffer_writeStr(RingBuffer *buffer, char *data);
+
+// Write data into the ring buffer
+void RingBuffer_writeData(RingBuffer *b, void *data, int32_t count);
 
 // Read count bytes into data, return count of byte read
-int32_t RingBuffer_read(RingBuffer *b, char *data, int32_t count);
+int32_t RingBuffer_read(RingBuffer *b, void *data, int32_t count);
 
 // Return the size of the current data in the buffer
 int32_t RingBuffer_getSize(RingBuffer *b);

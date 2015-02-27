@@ -6,8 +6,12 @@ DAQ daq;
 // FatFS file object
 FIL dataFile;
 
+// Buffer used for string formatted data
+RingBuffer *strBuff;
+
 // Time tracking
 static volatile uint32_t sampleCount; // Count of samples taken in the current recording
+static uint32_t sampleStrfCount; // Count of samples string formatted in the current recording
 static volatile uint32_t startTime; // Absolute start time in seconds
 static volatile uint32_t dwt_lastTime; // Time of the last sample according to the DWT timer, used to measure sampling integral error and jitter
 static volatile int64_t dwt_elapsedTime; // Total sampling elapsed time according to the DWT timer
@@ -18,6 +22,7 @@ static volatile bool adcUsed;
 // Vout PWM
 // Takes 1190cc (16.5us). At 7200Hz, takes 11.9% of cpu time
 void SCT0_IRQHandler(void){
+
 	/* Clear interrupt */
 	Chip_SCT_ClearEventFlag(LPC_SCT0, SCT_EVT_0);
 
@@ -32,7 +37,13 @@ void SCT0_IRQHandler(void){
 						(1 << ADC_REF) 	| // Internal reference output 4.096v
 						(0 << ADC_SEQ) 	| // Channel sequencer disabled
 						(1 << ADC_RB);	  // Do not read back config
+#ifdef DEBUG
+	uint32_t start_time = DWT_Get();
+#endif
     adc_read(voutCFG);
+#ifdef DEBUG
+	uint32_t elapsed_time = DWT_Get() - start_time;
+#endif
     adc_read(0);
 
     // Theoretical mv / LSB = 1000 * ((100+20)/20) * 4.096 / (1 << 16) = 0.375
@@ -53,6 +64,12 @@ void SCT0_IRQHandler(void){
 
     // Set PWM output
     Chip_SCTPWM_SetDutyCycle(LPC_SCT0, 1, pwmOut);
+
+#ifdef DEBUG
+    char b[32];
+    sprintf(b,"%d\n", elapsed_time);
+    putLineUART(b);
+#endif
 }
 
 // Sample timer
@@ -61,22 +78,15 @@ void RIT_IRQHandler(void){
 	Chip_RIT_ClearIntStatus(LPC_RITIMER);
 
 	uint32_t i, j;
-	uint16_t rawVal[3];
-	float scaledVal[3];
+	uint16_t rawVal[MAX_CHAN];
 
 	uint32_t dwt_currentTime = DWT_Get();
-
-	char sampleStr[60]; // Ex. 9999.123400, 1.23456E+01, 1.23456E+01, 1.23456E+01
-	int8_t sampleStr_size = 0;
-
-	uint32_t seconds;
-	int64_t microseconds;
 
 	if(daq.sample_rate >= 1000){
 		// Set ADC config
 		uint16_t sampleCFG = (1 << ADC_CFG ) | // Overwrite config
 							 (6 << ADC_INCC) | // Unipolar, referenced to COM
-							 (2 << ADC_IN)   | // Sequence channels 0,1,2
+							 ((MAX_CHAN-1) << ADC_IN)   | // Sequence channels 0,1.. (MAX_CHAN-1)
 							 (1 << ADC_BW)   | // Full bandwidth
 							 (1 << ADC_REF)  | // Internal reference output 4.096v
 							 (3 << ADC_SEQ)  | // Channel sequencer enabled
@@ -85,15 +95,21 @@ void RIT_IRQHandler(void){
 		NVIC_DisableIRQ(SCT0_IRQn); // Prevent sampling interruptions
 		adc_read(sampleCFG);
 		adc_read(0); // Buffering read, next read returns sample from channel 0
-		// Read all channels
-		for(i=0;i<3;i++){
-			rawVal[i] = adc_read(0);
+		// Read all channels, only store data for enabled channels
+		uint8_t ch = 0;
+		for(i=0;i<MAX_CHAN;i++){
+			if(daq.channel[i].enable){
+				rawVal[ch++] = adc_read(0);
+			} else {
+				adc_read(0);
+			}
 		}
 		NVIC_EnableIRQ(SCT0_IRQn);
 
 	} else { // Average a bunch of samples for each channel when recording at slow rates for better noise rejection
 		// Read all enabled channels
-		for(i=0;i<3;i++){
+		uint8_t ch = 0;
+		for(i=0;i<MAX_CHAN;i++){
 			if(daq.channel[i].enable){
 				// Set ADC config
 				uint16_t sampleCFG = (1 << ADC_CFG ) | // Overwrite config
@@ -126,60 +142,25 @@ void RIT_IRQHandler(void){
 					}
 					sum += raw;
 				}
-				rawVal[i] = sum / count;
+				rawVal[ch++] = sum / count;
 			}
 		}
 	}
 
 	// Read current time with microsecond precision
-	microseconds = ((int64_t)sampleCount * 1000000 ) / daq.sample_rate;
+	int64_t microseconds = ((int64_t)sampleCount * 1000000 ) / daq.sample_rate;
 
 	// Compare to DWT timer
 	dwt_elapsedTime += dwt_currentTime - dwt_lastTime;
 	dwt_lastTime = dwt_currentTime;
 	int32_t dT = microseconds - dwt_elapsedTime/72;
 
-	seconds = startTime + microseconds / 1000000;
-	microseconds = microseconds % 1000000;
-
 	// Error if sample timing is off by > 50us
 	if(dT > 3600 || dT < -3600){
 		error(ERROR_SAMPLE_TIME);
 	}
 
-	/* Scale samples , takes 1260cc (17.5us) */
-	for(i=0;i<3;i++){
-		if(daq.channel[i].enable){ // Only scale enabled channels
-			// Calculate value scaled to volts
-			if(daq.channel[i].range == V5){
-				scaledVal[i] = (rawVal[i] - daq.channel[i].v5_zero_offset) / daq.channel[i].v5_LSB_per_volt;
-				scaledVal[i] = clamp(scaledVal[i], 0.0, 5.0);
-			} else {
-				scaledVal[i] = (rawVal[i] - daq.channel[i].v24_zero_offset) / daq.channel[i].v24_LSB_per_volt;
-				scaledVal[i] = clamp(scaledVal[i], -24.0, 24.0);
-			}
-			// Scale volts to [units]
-			scaledVal[i] *= daq.channel[i].units_per_volt;
-		}
-	}
-
-    /* String formatting takes 45000cc (625us) */
-	// Format time in output string
-	sampleStr_size += sprintf(sampleStr+sampleStr_size, "%u.%04u", seconds, (uint32_t)microseconds/100); // sprintf does not work with 64-bit ints
-
-	// Format samples in output string
-	for(i=0;i<3;i++){
-		if(daq.channel[i].enable){
-			// Format and append sample string to output string
-			sampleStr_size += sprintf(sampleStr+sampleStr_size, ", %.5E", scaledVal[i]);
-		}
-	}
-	sampleStr_size += sprintf(sampleStr+sampleStr_size, "\n");
-#if defined(DEBUG) && defined(PRINT_DATA_UART)
-	putLineUART(sampleStr);
-#endif
-	// Write string to ring buffer
-	RingBuffer_write(ringBuff, sampleStr);
+	RingBuffer_writeData(rawBuff, rawVal, daq.channel_count*2); // 16 bit samples = 2bytes/sample
 
 	// Increment sample counter
 	sampleCount++;
@@ -199,6 +180,8 @@ void daq_init(void)
 	// Set up ADC
 	adc_spi_setup();
 
+	putLineUART("here 0\n");
+
 	// Set up channel ranges in hardware mux
 #ifndef DEBUG
 	int i;
@@ -212,6 +195,8 @@ void daq_init(void)
 	Chip_GPIO_SetPinDIROutput(LPC_GPIO, 0, VOUT_N_SHDN);
 	Chip_GPIO_SetPinState(LPC_GPIO, 0, VOUT_N_SHDN, true);
 
+	putLineUART("here 1\n");
+
 	// Set up Vout PWM
 	Chip_SCTPWM_Init(LPC_SCT0);
 	Chip_SCTPWM_SetRate(LPC_SCT0, 7200); // 7200Hz, 10000 counts per cycle
@@ -220,10 +205,14 @@ void daq_init(void)
 	Chip_SCTPWM_SetDutyCycle(LPC_SCT0, 1, 0); // Set to duty cycle of 0
 	Chip_SCTPWM_Start(LPC_SCT0); // Start PWM
 
+	putLineUART("here 2\n");
+
 	// Create SCT0 Vout PWM interrupt
 	Chip_SCT_EnableEventInt(LPC_SCT0, SCT_EVT_0);
 	NVIC_EnableIRQ(SCT0_IRQn);
 	NVIC_SetPriority(SCT0_IRQn, 0x00); // Set to higher priority than sampling
+
+	putLineUART("here 3\n");
 
 	// Delay 200ms to allow system to stabilize
 	DWT_Delay(200000);
@@ -231,18 +220,22 @@ void daq_init(void)
 	// Write data file header
 	daq_header();
 
-	// Clear the output buffer
-	RingBuffer_clear(ringBuff);
+	// Clear the raw data buffer
+	RingBuffer_clear(rawBuff);
+
+	// Initialize the string formatted buffer
+	strBuff = RingBuffer_init(BLOCK_SIZE + SAMPLE_STR_SIZE);
 
 	// 0 the sample count
 	sampleCount = 0;
+	sampleStrfCount = 0;
 
 	// Get actual start time from RTC
 	startTime = 0; //Chip_RTC_GetCount(LPC_RTC);
 
 	// Start time according to DWT timer
 	dwt_lastTime = DWT_Get();
-	dwt_elapsedTime = -(72000000 / daq.sample_rate);
+	dwt_elapsedTime = -(SystemCoreClock / daq.sample_rate);
 
 	// Set up sampling interrupt using RIT
 	Chip_RIT_Init(LPC_RITIMER);
@@ -327,38 +320,96 @@ void daq_stop(void){
 	log_string("Acquisition stop");
 
 	// flush ring buffer to disk
-	daq_flushBuffer();
+	daq_writeData();
+	daq_writeBlock(); // Write any partial block remaining
+
+	// Destroy the string formatted buffer
+	RingBuffer_destroy(strBuff);
 
 	// Write all buffered data to disk
 	f_close(&dataFile);
 }
 
-// Write the ring buffer to disk in blocks
-void daq_writeBuffer(void){
+
+// Write a single block to the data file from the string buffer
+void daq_writeBlock(void){
 	int32_t br;
 	UINT bw;
 	FRESULT errorCode;
 	char data[BLOCK_SIZE];
-	while(RingBuffer_getSize(ringBuff) >= BLOCK_SIZE){ // Only write in units of BLOCK_SIZE
-		br = RingBuffer_read(ringBuff, data, BLOCK_SIZE);
-		if((errorCode = f_write(&dataFile, data, br, &bw)) != FR_OK){
-			error(ERROR_F_WRITE);
-		}
-	};
+	br = RingBuffer_read(strBuff, data, BLOCK_SIZE);
+	if((errorCode = f_write(&dataFile, data, br, &bw)) != FR_OK){
+		error(ERROR_F_WRITE);
+	}
 }
 
-// Flush the ring buffer to disk
-void daq_flushBuffer(void){
-	int32_t br;
-	UINT bw;
-	FRESULT errorCode;
-	char data[BLOCK_SIZE];
-	do{
-		br = RingBuffer_read(ringBuff, data, BLOCK_SIZE);
-		if((errorCode = f_write(&dataFile, data, br, &bw)) != FR_OK){
-			error(ERROR_F_WRITE);
+// Write data from raw buffer to file, formatting to string  buffer as an intermediate step
+// Stop when the raw buffer is empty
+void daq_writeData(void){
+	while(true){
+		// Format raw data into the string buffer until a block is ready
+		while(RingBuffer_getSize(strBuff) < BLOCK_SIZE){
+			int32_t br;
+			uint16_t rawData[MAX_CHAN];
+			br = RingBuffer_read(rawBuff, rawData, daq.channel_count*2);
+			if(br < daq.channel_count*2){
+				return; // No more raw data, finished processing
+			} else {
+				// Format data into string
+				char sampleStr[SAMPLE_STR_SIZE];
+				daq_stringFormat(rawData, sampleStr);
+				RingBuffer_writeStr(strBuff, sampleStr);
+#if defined(DEBUG) && defined(PRINT_DATA_UART)
+				putLineUART(sampleStr);
+#endif
+			}
 		}
-	}while(br == BLOCK_SIZE);
+		daq_writeBlock();
+	}
+}
+
+// Convert rawData into a formatted output string
+void daq_stringFormat(uint16_t *rawData, char *sampleStr){
+	// sampleStr Ex. 9999.123400, 1.23456E+01, 1.23456E+01, 1.23456E+01
+	int8_t sampleStr_size = 0;
+
+	float scaledVal[MAX_CHAN];
+
+	// Calculate sample time with microsecond precision
+	int64_t microseconds = ((int64_t)sampleStrfCount++ * 1000000 ) / daq.sample_rate;
+
+	uint32_t seconds = startTime + microseconds / 1000000;
+	microseconds = microseconds % 1000000;
+
+	/* Scale samples , takes 1260cc (17.5us) */
+	uint8_t ch = 0;
+	int8_t i;
+	for(i=0;i<MAX_CHAN;i++){
+		if(daq.channel[i].enable){ // Only scale enabled channels
+			// Calculate value scaled to volts
+			if(daq.channel[i].range == V5){
+				scaledVal[ch] = (rawData[ch] - daq.channel[i].v5_zero_offset) / daq.channel[i].v5_LSB_per_volt;
+				scaledVal[ch] = clamp(scaledVal[ch], 0.0, 5.0);
+			} else {
+				scaledVal[ch] = (rawData[ch] - daq.channel[i].v24_zero_offset) / daq.channel[i].v24_LSB_per_volt;
+				scaledVal[ch] = clamp(scaledVal[ch], -24.0, 24.0);
+			}
+			// Scale volts to [units]
+			scaledVal[ch] *= daq.channel[i].units_per_volt;
+			ch++;
+		}
+	}
+
+    /* String formatting takes 45000cc (625us) */
+	// Format time in output string
+	sampleStr_size += sprintf(sampleStr+sampleStr_size, "%u.%04u", seconds, (uint32_t)microseconds/100); // sprintf does not work with 64-bit ints
+
+	// Format samples in output string
+	for(i=0;i<daq.channel_count;i++){
+		// Format and append sample string to output string
+		sampleStr_size += sprintf(sampleStr+sampleStr_size, ", %.5E", scaledVal[i]);
+	}
+	sampleStr_size += sprintf(sampleStr+sampleStr_size, "\n");
 }
 
 // Limit configuration values to valid ranges
@@ -399,7 +450,7 @@ void daq_configDefault(void){
 	int i;
 
 	// Channel_Config defaults
-	for(i=0;i<3;i++){
+	for(i=0;i<MAX_CHAN;i++){
 		daq.channel[i].enable = false;				// enable channel
 		daq.channel[i].range = V24;					// 0-5v input range
 		daq.channel[i].units_per_volt = 1.0;		// output in volts
@@ -412,8 +463,16 @@ void daq_configDefault(void){
 	}
 	daq.channel[2].enable = true;
 
+	// Count enabled channels
+	daq.channel_count = 0;
+	for(i=0;i<MAX_CHAN;i++){
+		if (daq.channel[i].enable){
+			daq.channel_count++;
+		}
+	}
+
 	// Sample rate in Hz
-	daq.sample_rate = 1000;
+	daq.sample_rate = 10;
 
 	// Vout = 5v
 	daq.mv_out = 5000;

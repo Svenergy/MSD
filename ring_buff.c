@@ -29,7 +29,7 @@ void RingBuffer_destroy(RingBuffer *buffer){
 }
 
 // Write string into the ring buffer
-void RingBuffer_write(RingBuffer *b, char *string){
+void RingBuffer_writeStr(RingBuffer *b, char *string){
 	// Get the length of the string
 	int32_t len = strlen(string);
 
@@ -51,8 +51,28 @@ void RingBuffer_write(RingBuffer *b, char *string){
 	b->end = (b->end + len) % b->length;
 }
 
+// Write data into the ring buffer
+void RingBuffer_writeData(RingBuffer *b, void *data, int32_t count){
+	// Error if data would be overwritten before being read
+	if(count + ((b->end - b->start + b->length) % b->length)  >= b->length ){
+		error(ERROR_BUF_OVF);
+	}
+
+	// Copy the data into the ring buffer
+	if(b->end + count > b->length){
+		int32_t partLen = b->length - b->end;
+		memcpy(b->buffer + b->end, data, partLen);
+		memcpy(b->buffer, data + partLen, count-partLen);
+	}else{
+		memcpy(b->buffer + b->end, data, count);
+	}
+
+	// Move the end
+	b->end = (b->end + count) % b->length;
+}
+
 // Read count bytes into data, return count of byte read
-int32_t RingBuffer_read(RingBuffer *b, char *data, int32_t count){
+int32_t RingBuffer_read(RingBuffer *b, void *data, int32_t count){
 	int32_t br;
 	int32_t end; // read up to this value
 

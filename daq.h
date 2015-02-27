@@ -13,7 +13,11 @@
 #include "sys_error.h"
 #include "log.h"
 
+#define MAX_CHAN 3 // Total count of available channels
+
 #define BLOCK_SIZE 512 // Size of blocks to write to the file system
+
+#define SAMPLE_STR_SIZE 60 // Maximum size of a single sample string
 
 #define clamp(amt,low,high) ((amt)<(low)?(low):((amt)>(high)?(high):(amt)))
 
@@ -44,20 +48,20 @@ typedef struct Channel_Config {
 
 // Configuration data for the entire DAQ
 typedef struct DAQ {
-	Channel_Config channel[3];
-	int32_t mv_out;		// Output voltage in mv, valid_range = <5000..24000>
+	Channel_Config channel[MAX_CHAN];
+	uint8_t channel_count;	// Number of channels enabled, calculated from Channel_Config enables
+	int32_t mv_out;			// Output voltage in mv, valid_range = <5000..24000>
 	int32_t sample_rate;	// Sample rate in Hz, valid range = <1..10000>
 	char user_comment[80];	// User comment to appear at the top of each data file
 } DAQ;
 
 extern uint8_t rsel_pins[3];
 
-// FatFS volume and file
-extern FATFS *fatfs;
-extern FIL dataFile;
+// Raw data buffer
+extern struct RingBuffer *rawBuff;
 
-// write buffer
-extern struct RingBuffer *ringBuff;
+// FatFS volume
+extern FATFS *fatfs;
 
 // DAQ configuration data
 extern DAQ daq;
@@ -71,11 +75,15 @@ void daq_header(void);
 // Stop acquiring data
 void daq_stop(void);
 
-// Write the ring buffer to disk in blocks
-void daq_writeBuffer(void);
+// Write a single block to the data file from the string buffer
+void daq_writeBlock(void);
 
-// Flush the ring buffer to disk
-void daq_flushBuffer(void);
+// Write data from raw buffer to file, formatting to string  buffer as an intermediate step
+// Stop when the raw buffer is empty
+void daq_writeData(void);
+
+// Convert rawData into a formatted output string
+void daq_stringFormat(uint16_t *rawData, char *sampleStr);
 
 // Limit configuration values to valid ranges
 void daq_configCheck(void);

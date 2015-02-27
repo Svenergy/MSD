@@ -32,18 +32,18 @@ BLUE = error
 #include "config.h"
 #include "log.h"
 
+/* Size of the output file write buffer */
+#define RAW_BUFF_SIZE 0x4FFF // 0x5000 = 20kB, set 1 smaller for the extra byte required by the ring buffer
+
 #define VBAT_LOW 3.25 // Low battery indicator voltage
 #define VBAT_SHUTDOWN 3.0 // Low battery shut down voltage
 
 #define TICKRATE_HZ1 (100)	// 100 ticks per second
 #define TIMEOUT_SECS (300)	// Shut down after X seconds in Idle
 
-/* Size of the output file write buffer */
-#define WRITE_BUFF_SIZE 0x4FFF // 0x5000 = 20kB, set 1 smaller for the extra byte required by the ring buffer
+RingBuffer *rawBuff;
 
 FATFS *fatfs;
-
-RingBuffer *ringBuff;
 
 SD_CardInfo cardinfo;
 
@@ -99,7 +99,7 @@ void SysTick_Handler(void){
 		break;
 	case STATE_DAQ:
 		Board_LED_Color(LED_YELLOW);
-		daq_writeBuffer();	// Write data from buffer to file
+		daq_writeData(); // Write data from buffer to file
 		Board_LED_Color(LED_RED);
 
 		// If user has short pressed PB to stop acquisition
@@ -195,8 +195,8 @@ int main(void) {
 	// Set up ADC for reading battery voltage
 	read_vBat_setup();
 
-	// Initialize ring buffer used to buffer writes to the data file
-	ringBuff = RingBuffer_initWithBuffer(WRITE_BUFF_SIZE, RAM1_BASE);
+	// Initialize ring buffer used to buffer raw data samples
+	rawBuff = RingBuffer_initWithBuffer(RAW_BUFF_SIZE, RAM1_BASE);
 
 	// Initialize push button
 	pb_init(TICKRATE_HZ1);
