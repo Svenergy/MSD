@@ -32,6 +32,9 @@ BLUE = error
 #include "config.h"
 #include "log.h"
 
+#define VBAT_LOW 3.25 // Low battery indicator voltage
+#define VBAT_SHUTDOWN 3.0 // Low battery shut down voltage
+
 #define TICKRATE_HZ1 (100)	// 100 ticks per second
 #define TIMEOUT_SECS (300)	// Shut down after X seconds in Idle
 
@@ -47,6 +50,11 @@ SD_CardInfo cardinfo;
 uint32_t enterIdleTime; // Time that the idle state was entered
 
 void SysTick_Handler(void){
+	static bool lowBat; // Set when battery voltage drops below VBAT_LOW
+	static uint32_t sysTickCounter;
+
+	sysTickCounter++; // Used to schedule less frequent tasks
+
 	pb_loop();
 
 	switch(system_state){
@@ -69,6 +77,13 @@ void SysTick_Handler(void){
 			daq_init();
 			Board_LED_Color(LED_RED);
 			system_state = STATE_DAQ;
+		}
+
+		// Blink LED if in low battery state, otherwise solid green
+		if (lowBat && sysTickCounter % TICKRATE_HZ1 < TICKRATE_HZ1/2){
+			Board_LED_Color(LED_OFF);
+		} else {
+			Board_LED_Color(LED_GREEN);
 		}
 		break;
 	case STATE_MSC:
@@ -126,13 +141,23 @@ void SysTick_Handler(void){
 		}
 	}
 
+	/* Run once per second */
+	if(sysTickCounter % TICKRATE_HZ1 == 0){
+
+		float vBat = read_vBat(10);
+		lowBat = vBat < VBAT_LOW ? true : false; // Set low battery state
+		if (vBat < VBAT_SHUTDOWN){
+			shutdown_message("Low Battery");
+		}
+
+		if ((Chip_RTC_GetCount(LPC_RTC) - enterIdleTime > TIMEOUT_SECS && system_state == STATE_IDLE) ){
+			shutdown_message("Idle Time Out");
+		}
+	}
+
 	/* Shut down conditions */
 	if (pb_longPress()){
 		shutdown_message("Power Button Pressed");
-	} else if (read_vBat(10) < 3.0){
-		shutdown_message("Low Battery");
-	} else if ((Chip_RTC_GetCount(LPC_RTC) - enterIdleTime > TIMEOUT_SECS && system_state == STATE_IDLE) ){
-		shutdown_message("Idle Time Out");
 	}
 }
 
