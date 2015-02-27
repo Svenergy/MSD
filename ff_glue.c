@@ -5,38 +5,11 @@
  *      Author: Kyle
  */
 
+#include "ff.h"
+
 #include <time.h>
 
-#include "ff.h"
-#include "semphr.h"
-
 /* Glue functions to bind FatFS to rest of the system. */
-
-/* Create a sync object */
-int ff_cre_syncobj (BYTE volume, _SYNC_t* dest)
-{
-    *dest = semaphore_Create();
-    return true;
-}
-
-/* Lock sync object */
-int ff_req_grant (_SYNC_t mutex)
-{
-    return semaphore_Take(&mutex, _FS_TIMEOUT);
-}
-
-/* Unlock sync object */
-void ff_rel_grant (_SYNC_t mutex)
-{
-    semaphore_Give(&mutex);
-}
-
-/* Delete a sync object */
-int ff_del_syncobj (_SYNC_t mutex)
-{
-	// nothing to be done
-    return 1;
-}
 
 /* Get time from RTC and pack in uint32_t */
 uint32_t get_fattime (void)

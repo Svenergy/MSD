@@ -97,7 +97,7 @@
 /   1    - ASCII (No extended character. Valid for only non-LFN configuration.) */
 
 
-#define	_USE_LFN	2
+#define	_USE_LFN	1
 #define	_MAX_LFN	255
 /* The _USE_LFN option switches the LFN feature.
 /
@@ -225,7 +225,7 @@
 /      lock feature is independent of re-entrancy. */
 
 
-#define _FS_REENTRANT	1
+#define _FS_REENTRANT	0
 #define _FS_TIMEOUT		(SystemCoreClock/2)
 #define	_SYNC_t			Semaphore_t
 /* The _FS_REENTRANT option switches the re-entrancy (thread safe) of the FatFs

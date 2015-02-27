@@ -9,8 +9,6 @@
 
 #include "sd_spi.h"
 
-volatile Semaphore_t sd_lock;
-
 // Table for CRC-7 (polynomial x^7 + x^3 + 1)
 static uint8_t CRCTable[256];
 
@@ -41,7 +39,6 @@ static void setupSpiMaster(uint8_t clkdiv) {
 }
 
 static void GenerateCRCTable(void) {
-  
   int i, j;
   uint8_t CRCPoly = 0x89;  // the value of our CRC-7 polynomial
  
@@ -155,10 +152,6 @@ static SD_ERROR sd_send_command(uint16_t cmd,uint32_t data) {
 }
 
 SD_ERROR init_sd_spi(SD_CardInfo *cardinfo) {
-  if(!semaphore_Take(&sd_lock, SD_CMD_TIMEOUT)){
-	  return ERROR_AQUIRE_LOCK_TIMEOUT;
-  }
-
   uint32_t i,time1,time2;
   SD_ERROR tmp;
   
@@ -173,18 +166,15 @@ SD_ERROR init_sd_spi(SD_CardInfo *cardinfo) {
   
   // Go idle state
   if(sd_send_command(CMD0,0)!=SD_OK) {
-	semaphore_Give(&sd_lock);
     return ERROR_GO_IDLE_STATE_TIMEOUT;
   }
     
   if(response[0]!=R1_IN_IDLE_STATE)  {
-	semaphore_Give(&sd_lock);
     return ERROR_GO_IDLE_STATE_RESPONSE;
   }
   
   // SEND_IF_COND
   if(sd_send_command(CMD8, 0x000001AA)!=SD_OK) {
-	semaphore_Give(&sd_lock);
     return ERROR_SEND_IF_COND_TIMEOUT;
   }
   
@@ -203,14 +193,12 @@ SD_ERROR init_sd_spi(SD_CardInfo *cardinfo) {
           // Loop till card goes out of idle
           do {  
             if(sd_send_command(CMD1,0)!=SD_OK) {
-              semaphore_Give(&sd_lock);
               return ERROR_SEND_OP_COND_TIMEOUT;
             }
             time2=DWT_Get();
           } while((response[0]==R1_IN_IDLE_STATE) && (time2-time1 < SD_CMD_TIMEOUT));
       
           if (time2-time1 >= SD_CMD_TIMEOUT) {
-            semaphore_Give(&sd_lock);
             return ERROR_INIT_TIMEOUT;
           }
         }
@@ -226,13 +214,11 @@ SD_ERROR init_sd_spi(SD_CardInfo *cardinfo) {
           {
             if(sd_send_command(CMD55,0)==SD_OK) {
               if(sd_send_command(ACMD41,0)!=SD_OK) {
-                semaphore_Give(&sd_lock);
                 return ERROR_SD_SEND_OP_COND_TIMEOUT;                
               }
             }
             else
             {
-              semaphore_Give(&sd_lock);
               return ERROR_APP_CMD_TIMEOUT;
             }
             time2=DWT_Get();
@@ -241,18 +227,15 @@ SD_ERROR init_sd_spi(SD_CardInfo *cardinfo) {
           
           // As long as we didn't hit the timeout, assume we're OK.
           if (time2-time1 >= SD_CMD_TIMEOUT) {
-        	semaphore_Give(&sd_lock);
             return ERROR_INIT_TIMEOUT;
           }
         }        
       }
       else {
-        semaphore_Give(&sd_lock);
         return ERROR_SD_SEND_OP_COND_TIMEOUT;        
       }      
     }
     else {
-      semaphore_Give(&sd_lock);
       return ERROR_APP_CMD_TIMEOUT;
     }
   }
@@ -267,13 +250,11 @@ SD_ERROR init_sd_spi(SD_CardInfo *cardinfo) {
     {
       if(sd_send_command(CMD55,0)==SD_OK) {
         if(sd_send_command(ACMD41,0x40000000)!=SD_OK) {
-          semaphore_Give(&sd_lock);
           return ERROR_SD_SEND_OP_COND_TIMEOUT;        
         }        
       }
       else
       {
-        semaphore_Give(&sd_lock);
         return ERROR_APP_CMD_TIMEOUT;
       }
       time2=DWT_Get();
@@ -282,24 +263,20 @@ SD_ERROR init_sd_spi(SD_CardInfo *cardinfo) {
     
     // As long as we didn't hit the timeout, assume we're OK.
     if (time2-time1 >= SD_CMD_TIMEOUT) {
-      semaphore_Give(&sd_lock);
       return ERROR_INIT_TIMEOUT;
     }
   }
   else {
-    semaphore_Give(&sd_lock);
     return ERROR_SEND_IF_COND_RESPONSE;
   }
   
   // Read OCR register for supported voltages and SDHC bit
   if(sd_send_command(CMD58,0)!=SD_OK) {
-    semaphore_Give(&sd_lock);
     return ERROR_READ_OCR_TIMEOUT;
   }
   
   // At a very minimum, we must allow 3.3V.
   if ((response[2] & MSK_OCR_33) != MSK_OCR_33) {
-    semaphore_Give(&sd_lock);
     return ERROR_READ_OCR_RESPONSE;
   }
   
@@ -317,14 +294,12 @@ SD_ERROR init_sd_spi(SD_CardInfo *cardinfo) {
   // Read and decode CID register
   tmp=sd_read_cid(&cardinfo->SD_cid,cardinfo->CardType);
   if(tmp!=SD_OK) {
-    semaphore_Give(&sd_lock);
     return tmp;
   }
   
   // Read and decode CSD register
   tmp=sd_read_csd(&cardinfo->SD_csd,cardinfo->CardType);
   if(tmp!=SD_OK) {
-    semaphore_Give(&sd_lock);
     return tmp;
   }
   
@@ -343,13 +318,11 @@ SD_ERROR init_sd_spi(SD_CardInfo *cardinfo) {
     cardinfo->CardBlockSize=512;
   }
 
-  semaphore_Give(&sd_lock);
   return SD_OK;
 }
 
 // Hard reset power and re-initialize
 SD_ERROR sd_reset(SD_CardInfo *cardinfo){
-	semaphore_Give(&sd_lock);
 	//Hard reset
 	Chip_GPIO_SetPinDIROutput(LPC_GPIO, 0, SD_POWER);
 	Chip_GPIO_SetPinState(LPC_GPIO, 0, SD_POWER, 1);
@@ -360,10 +333,6 @@ SD_ERROR sd_reset(SD_CardInfo *cardinfo){
 }
 
 uint8_t sd_read_block (uint32_t blockaddr,uint8_t *data) {
-  if(!semaphore_Take(&sd_lock, SD_CMD_TIMEOUT)){
-	  return ERROR_AQUIRE_LOCK_TIMEOUT;
-  }
-  
   uint32_t i;
   uint8_t tmp;
   uint32_t time1,time2;
@@ -374,13 +343,11 @@ uint8_t sd_read_block (uint32_t blockaddr,uint8_t *data) {
   }
 
   if(sd_send_command(CMD17, blockaddr)!=SD_OK) {
-	semaphore_Give(&sd_lock);
     return 1;
   }
 
   // Check for an error, like a misaligned read
   if(response[0]) {
-	semaphore_Give(&sd_lock);
     return 1;
   }
 
@@ -394,7 +361,6 @@ uint8_t sd_read_block (uint32_t blockaddr,uint8_t *data) {
   while ((tmp == 0xFF) && (time2-time1 < SD_CMD_TIMEOUT));
   
   if (time2-time1 >= SD_CMD_TIMEOUT) {
-	semaphore_Give(&sd_lock);
     return 1;
   }
   
@@ -403,7 +369,6 @@ uint8_t sd_read_block (uint32_t blockaddr,uint8_t *data) {
     // Clock out a byte before returning
     SPI_WriteDummyByte();
     // The card returned an error response. Bail and return 0
-    semaphore_Give(&sd_lock);
     return 1;
   }
   
@@ -417,15 +382,10 @@ uint8_t sd_read_block (uint32_t blockaddr,uint8_t *data) {
   
   SPI_WriteDummyByte();
  
-  semaphore_Give(&sd_lock);
   return 0;
 }
 
 uint8_t sd_read_multiple_blocks (uint32_t blockaddr, uint32_t blockcount, uint8_t *data) {
-  if(!semaphore_Take(&sd_lock, SD_CMD_TIMEOUT)){
-	  return ERROR_AQUIRE_LOCK_TIMEOUT;
-  }
-
   uint32_t i,bn;
   uint8_t tmp;
   uint32_t time1,time2;
@@ -437,13 +397,11 @@ uint8_t sd_read_multiple_blocks (uint32_t blockaddr, uint32_t blockcount, uint8_
 
   // Send read multiple blocks command
   if(sd_send_command(CMD18, blockaddr)!=SD_OK) {
-    semaphore_Give(&sd_lock);
     return 1;
   }
 
   // Check for an error, like a misaligned read
   if(response[0]) {
-	semaphore_Give(&sd_lock);
     return 1;
   }
 
@@ -458,7 +416,6 @@ uint8_t sd_read_multiple_blocks (uint32_t blockaddr, uint32_t blockcount, uint8_
 	  while ((tmp == 0xFF) && (time2-time1 < SD_CMD_TIMEOUT));
 
 	  if (time2-time1 >= SD_CMD_TIMEOUT) {
-		semaphore_Give(&sd_lock);
 		return 1;
 	  }
 
@@ -467,7 +424,6 @@ uint8_t sd_read_multiple_blocks (uint32_t blockaddr, uint32_t blockcount, uint8_
 		// Clock out a byte before returning
 		SPI_WriteDummyByte();
 		// The card returned an error response. Bail and return 1
-		semaphore_Give(&sd_lock);
 		return 1;
 	  }
 
@@ -482,21 +438,15 @@ uint8_t sd_read_multiple_blocks (uint32_t blockaddr, uint32_t blockcount, uint8_
 
   // Send stop transmission command
   if(sd_send_command(CMD12, 0)!=SD_OK) {
-	semaphore_Give(&sd_lock);
     return 1;
   }
 
   SPI_WriteDummyByte();
 
-  semaphore_Give(&sd_lock);
   return 0;
 }
 
 uint8_t sd_write_block (uint32_t blockaddr,uint8_t *data) {
-  if(!semaphore_Take(&sd_lock, SD_CMD_TIMEOUT)){
-	  return ERROR_AQUIRE_LOCK_TIMEOUT;
-  }
-  
   uint32_t i;
   uint8_t tmp;
 
@@ -506,13 +456,11 @@ uint8_t sd_write_block (uint32_t blockaddr,uint8_t *data) {
   }
   
   if(sd_send_command(CMD24,blockaddr)!=SD_OK) {
-	semaphore_Give(&sd_lock);
     return 1;
   }    
 
   // Check for an error, like a misaligned write
   if(response[0]) {
-	semaphore_Give(&sd_lock);
     return 1;
   } 
   
@@ -531,7 +479,6 @@ uint8_t sd_write_block (uint32_t blockaddr,uint8_t *data) {
   tmp=SPI_ReadByte();
   if((tmp & 0x1F) != DATA_RESPONSE_TOKEN_DATA_ACCEPTED) {
     SPI_WriteDummyByte();
-    semaphore_Give(&sd_lock);
     return 1;
   }
 
@@ -540,7 +487,6 @@ uint8_t sd_write_block (uint32_t blockaddr,uint8_t *data) {
   
   SPI_WriteDummyByte();
   
-  semaphore_Give(&sd_lock);
   return 0;
   
 }
@@ -548,10 +494,6 @@ uint8_t sd_write_block (uint32_t blockaddr,uint8_t *data) {
 //TODO: Fix this function
 // 		Currently error in data response token after writing the first block
 uint8_t sd_write_multiple_blocks (uint32_t blockaddr, uint32_t blockcount, uint8_t *data) {
-  if(!semaphore_Take(&sd_lock, SD_CMD_TIMEOUT)){
-	  return ERROR_AQUIRE_LOCK_TIMEOUT;
-  }
-
   uint32_t i,bn;
   uint8_t tmp;
 
@@ -562,25 +504,21 @@ uint8_t sd_write_multiple_blocks (uint32_t blockaddr, uint32_t blockcount, uint8
 
   // Send app command
   if(sd_send_command(CMD55, 0)!=SD_OK) {
-    semaphore_Give(&sd_lock);
   	return 1;
   }
 
   // Set number of blocks to pre-erase
   if(sd_send_command(ACMD23, blockcount)!=SD_OK) {
-    semaphore_Give(&sd_lock);
   	return 1;
   }
 
   // Write multiple block = CMD25
   if(sd_send_command(CMD25, blockaddr)!=SD_OK) {
-	semaphore_Give(&sd_lock);
 	return 1;
   }
 
   // Check for an error, like a misaligned write
   if(response[0]) {
-	semaphore_Give(&sd_lock);
 	return 1;
   }
 
@@ -608,7 +546,6 @@ uint8_t sd_write_multiple_blocks (uint32_t blockaddr, uint32_t blockcount, uint8
 		  sprintf(buf, "\nERROR:, tmp = 0x%02X\n",tmp);
 		  putLineUART(buf);
 #endif
-		  semaphore_Give(&sd_lock);
 		  return 1;
 	  }
 
@@ -621,7 +558,6 @@ uint8_t sd_write_multiple_blocks (uint32_t blockaddr, uint32_t blockcount, uint8
 
   SPI_WriteDummyByte();
 
-  semaphore_Give(&sd_lock);
   return 0;
 }
 
