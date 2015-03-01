@@ -19,7 +19,7 @@ typedef enum {
 	ERROR_SAMPLE_TIME	= 7,
 } ERROR_CODE;
 
-extern FATFS *fatfs;
+extern FATFS fatfs[_VOLUMES];
 
 extern SD_CardInfo cardinfo;
 

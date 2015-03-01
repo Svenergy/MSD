@@ -43,7 +43,7 @@ BLUE = error
 
 RingBuffer *rawBuff;
 
-FATFS *fatfs;
+FATFS fatfs[_VOLUMES];
 
 SD_CardInfo cardinfo;
 

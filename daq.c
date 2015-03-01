@@ -14,7 +14,7 @@ static volatile uint32_t sampleCount; // Count of samples taken in the current r
 static uint32_t sampleStrfCount; // Count of samples string formatted in the current recording
 static volatile uint32_t startTime; // Absolute start time in seconds
 static volatile uint32_t dwt_lastTime; // Time of the last sample according to the DWT timer, used to measure sampling integral error and jitter
-static volatile int64_t dwt_elapsedTime; // Total sampling elapsed time according to the DWT timer
+static volatile uint64_t dwt_elapsedTime; // Total sampling elapsed time according to the DWT timer
 
 // Flag set by SCT0_IRQHandler, accessed by RIT_IRQHandler
 static volatile bool adcUsed;
@@ -22,7 +22,6 @@ static volatile bool adcUsed;
 // Vout PWM
 // Takes 1190cc (16.5us). At 7200Hz, takes 11.9% of cpu time
 void SCT0_IRQHandler(void){
-
 	/* Clear interrupt */
 	Chip_SCT_ClearEventFlag(LPC_SCT0, SCT_EVT_0);
 
@@ -37,13 +36,7 @@ void SCT0_IRQHandler(void){
 						(1 << ADC_REF) 	| // Internal reference output 4.096v
 						(0 << ADC_SEQ) 	| // Channel sequencer disabled
 						(1 << ADC_RB);	  // Do not read back config
-#ifdef DEBUG
-	uint32_t start_time = DWT_Get();
-#endif
     adc_read(voutCFG);
-#ifdef DEBUG
-	uint32_t elapsed_time = DWT_Get() - start_time;
-#endif
     adc_read(0);
 
     // Theoretical mv / LSB = 1000 * ((100+20)/20) * 4.096 / (1 << 16) = 0.375
@@ -64,12 +57,6 @@ void SCT0_IRQHandler(void){
 
     // Set PWM output
     Chip_SCTPWM_SetDutyCycle(LPC_SCT0, 1, pwmOut);
-
-#ifdef DEBUG
-    char b[32];
-    sprintf(b,"%d\n", elapsed_time);
-    putLineUART(b);
-#endif
 }
 
 // Sample timer
@@ -147,8 +134,8 @@ void RIT_IRQHandler(void){
 		}
 	}
 
-	// Read current time with microsecond precision
-	int64_t microseconds = ((int64_t)sampleCount * 1000000 ) / daq.sample_rate;
+	// Read current time with microsecond precision, increment sample counter
+	uint64_t microseconds = ((uint64_t)++sampleCount * 1000000 ) / daq.sample_rate;
 
 	// Compare to DWT timer
 	dwt_elapsedTime += dwt_currentTime - dwt_lastTime;
@@ -161,9 +148,6 @@ void RIT_IRQHandler(void){
 	}
 
 	RingBuffer_writeData(rawBuff, rawVal, daq.channel_count*2); // 16 bit samples = 2bytes/sample
-
-	// Increment sample counter
-	sampleCount++;
 }
 
 // Start acquiring data
@@ -235,7 +219,7 @@ void daq_init(void)
 
 	// Start time according to DWT timer
 	dwt_lastTime = DWT_Get();
-	dwt_elapsedTime = -(SystemCoreClock / daq.sample_rate);
+	dwt_elapsedTime = 0;
 
 	// Set up sampling interrupt using RIT
 	Chip_RIT_Init(LPC_RITIMER);

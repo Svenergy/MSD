@@ -61,7 +61,7 @@ extern uint8_t rsel_pins[3];
 extern struct RingBuffer *rawBuff;
 
 // FatFS volume
-extern FATFS *fatfs;
+extern FATFS fatfs[_VOLUMES];
 
 // DAQ configuration data
 extern DAQ daq;
