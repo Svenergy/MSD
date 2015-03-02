@@ -63,7 +63,7 @@ typedef struct DAQ {
 	int32_t sample_rate;	// Sample rate in Hz, valid range = <1..10000>
 	int8_t time_res;		// Sample time resolution in n digits where time is s.n
 	DATA_T data_mode;		// data mode, can be READABLE or COMPACT
-	char user_comment[80];	// User comment to appear at the top of each data file
+	char user_comment[100];	// User comment to appear at the top of each data file
 } DAQ;
 
 extern uint8_t rsel_pins[3];

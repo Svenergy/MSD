@@ -19,26 +19,29 @@ This header text appears at the top of every data file.
 500
     TRIGGER DELAY [SEC, 0 - 100000]
 0
-    COMPACT DATA [Y/N]
-N
+    DATA MODE [[R]eadable / [H]ex / [B]inary]
+R
 
     CHANNEL 1
 ENABLED         [Y/N]: Y
 RANGE          [5/24]: 5
 UNITS [up to 8 chars]: NEWTONS
 UNITS PER VOLT   [fp]: 123.456
+ZERO OFFSET      [fp]: 2.5
 
     CHANNEL 2
 ENABLED         [Y/N]: Y
 RANGE          [5/24]: 5
 UNITS [up to 8 chars]: NEWTONS
 UNITS PER VOLT   [fp]: 123.456
+ZERO OFFSET      [fp]: 2.5
 
     CHANNEL 3
 ENABLED         [Y/N]: Y
 RANGE          [5/24]: 5
 UNITS [up to 8 chars]: NEWTONS
 UNITS PER VOLT   [fp]: 123.456
+ZERO OFFSET      [fp]: 2.5
 
 
 **** UPDATE CALIBRATION [Y/N] ****

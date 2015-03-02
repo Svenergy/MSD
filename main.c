@@ -55,8 +55,6 @@ void SysTick_Handler(void){
 
 	sysTickCounter++; // Used to schedule less frequent tasks
 
-	pb_loop();
-
 	switch(system_state){
 	case STATE_IDLE:
 #ifndef NO_USB
@@ -143,7 +141,6 @@ void SysTick_Handler(void){
 
 	/* Run once per second */
 	if(sysTickCounter % TICKRATE_HZ1 == 0){
-
 		float vBat = read_vBat(10);
 		lowBat = vBat < VBAT_LOW ? true : false; // Set low battery state
 		if (vBat < VBAT_SHUTDOWN){
@@ -199,7 +196,7 @@ int main(void) {
 	rawBuff = RingBuffer_initWithBuffer(RAW_BUFF_SIZE, RAM1_BASE);
 
 	// Initialize push button
-	pb_init(TICKRATE_HZ1);
+	pb_init();
 
 	// Enable and setup SysTick Timer at a periodic rate
 	Chip_Clock_SetSysTickClockDiv(1);
