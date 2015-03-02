@@ -31,6 +31,8 @@ uint8_t bufv[SD_BLOCKSIZE];
 
 // Zero-Copy Data Transfer model
 void MSC_Read(uint32_t offset, uint8_t** buff_adr, uint32_t length, uint32_t high_offset) { // high offset is always 0 and cannot be used to increase capacity >4gb
+  static bool bufferValid = false; // Set to indicate that the buffer data can be read
+
   // Host requests data in chunks of 512 bytes, USB bulk endpoint size is 64 bytes.
   // For each sector of 512 bytes, this function gets called 8 times with length=64 bytes
   Board_LED_Color(LED_PURPLE); // Purple MSC r/w
@@ -43,11 +45,12 @@ void MSC_Read(uint32_t offset, uint8_t** buff_adr, uint32_t length, uint32_t hig
 
   // If the requested data is not in the current buffered blocks, or is in the very first buffer
   // address is initialized to 0, therefore valid data is not guaranteed for blocks near 0, even when address is 0
-  if(new_address < address || new_address >= address + BLOCK_COUNT || new_address < BLOCK_COUNT){
+  if(new_address < address || new_address >= address + BLOCK_COUNT || bufferValid == false){
 	address = new_address;
 	if(sd_read_multiple_blocks(address, BLOCK_COUNT, bufr)!=SD_OK){
 	  error(ERROR_MSC_SD_READ);
 	}
+	bufferValid = true;
   }
 
   // Set pointer in buffer
