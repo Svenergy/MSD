@@ -61,6 +61,7 @@ typedef struct DAQ {
 	uint8_t channel_count;	// Number of channels enabled, calculated from Channel_Config enables
 	int32_t mv_out;			// Output voltage in mv, valid_range = <5000..24000>
 	int32_t sample_rate;	// Sample rate in Hz, valid range = <1..10000>
+	int8_t time_res;		// Sample time resolution in n digits where time is s.n
 	DATA_T data_mode;		// data mode, can be READABLE or COMPACT
 	char user_comment[80];	// User comment to appear at the top of each data file
 } DAQ;

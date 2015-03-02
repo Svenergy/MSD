@@ -378,9 +378,11 @@ void daq_hexFormat(uint16_t *rawData, char *sampleStr){
 	sampleStr[sampleStr_size++] = '\0';
 }
 
-// Convert rawData into a readable formatted output string
+// Convert rawData into a readable scaled and formatted output string
+// Total calculation time for 3 channels with time and sample precision 4:
+// 4650cc (65us)
 void daq_readableFormat(uint16_t *rawData, char *sampleStr){
-	// sampleStr Ex. 9999.1234,1.2345E+01,1.2345E+01,1.2345E+01
+	// sampleStr Ex. 9999.1234,1.2345e+01,1.2345e+01,1.2345e+01
 	int8_t sampleStr_size = 0;
 
 	dec_float_t scaledVal[MAX_CHAN];
@@ -415,7 +417,7 @@ void daq_readableFormat(uint16_t *rawData, char *sampleStr){
 
 	// Format time
 	// 424cc + 77cc / seconds digit (5.9us + 1us / digit) for precision 4
-	sampleStr_size += secondsToStr(sampleStr+sampleStr_size, seconds, (uint32_t)microseconds, 4); // Precision = 4
+	sampleStr_size += secondsToStr(sampleStr+sampleStr_size, seconds, (uint32_t)microseconds, daq.time_res);
 
 	// Fast formatting from fixed-point samples
 	for(i=0;i<daq.channel_count;i++){
@@ -431,9 +433,17 @@ void daq_readableFormat(uint16_t *rawData, char *sampleStr){
 
 // Limit configuration values to valid ranges
 void daq_configCheck(void){
-	daq.sample_rate = clamp(daq.sample_rate, 1, 10000);
+	// Count enabled channels
+	int i;
+	daq.channel_count = 0;
+	for(i=0;i<MAX_CHAN;i++){
+		if (daq.channel[i].enable){
+			daq.channel_count++;
+		}
+	}
 
 	// Force sample rate to be in the set [1,2,5]*10^k
+	daq.sample_rate = clamp(daq.sample_rate, 1, 10000);
 	uint32_t mag = 1;
 	while(mag < daq.sample_rate){
 		if(daq.sample_rate <= mag * 2){
@@ -446,8 +456,18 @@ void daq_configCheck(void){
 		mag *= 10;
 	}
 
+	// Determine time resolution required
+	daq.time_res = 0;
+	mag = 1;
+	while(mag < daq.sample_rate){
+		daq.time_res++;
+		mag *= 10;
+	}
+
 	// Limit output voltage to the range 5-24v
 	daq.mv_out = clamp(daq.mv_out, 5000, 24000);
+
+
 }
 
 // Set channel configuration from the config file on the SD card
@@ -482,16 +502,8 @@ void daq_configDefault(void){
 		daq.channel[i].v24_uV_per_LSB = floatToFix(745.48879);	// theoretical sensitivity of reading in uV / LSB = 1000000 / (((1 << 16)/4.096) * (1/(1/100+1/402+1/21+1/16.9)) / 100)
 	}
 
-	// Count enabled channels
-	daq.channel_count = 0;
-	for(i=0;i<MAX_CHAN;i++){
-		if (daq.channel[i].enable){
-			daq.channel_count++;
-		}
-	}
-
 	// Sample rate in Hz
-	daq.sample_rate = 10;
+	daq.sample_rate = 1000;
 
 	// Data mode can be READABLE, COMPACT, or BINARY
 	daq.data_mode = READABLE;

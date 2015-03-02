@@ -31,17 +31,18 @@ int32_t secondsToStr(char *str, uint32_t s, uint32_t us, int8_t precision){
 	}
 	strSize += d;
 
-	/* print '.' */
-	str[strSize++] = '.';
+	if(precision > 0){
+		/* print '.' */
+		str[strSize++] = '.';
 
-	/* print microseconds */
-	us /= pow10[6-precision];
-	for(i=1;i<=precision;i++){
-		str[strSize+precision-i] = '0' + (char)(us%10);
-		us /= 10;
+		/* print microseconds */
+		us /= pow10[6-precision];
+		for(i=1;i<=precision;i++){
+			str[strSize+precision-i] = '0' + (char)(us%10);
+			us /= 10;
+		}
+		strSize += precision;
 	}
-	strSize += precision;
-
 	return strSize;
 }
 
