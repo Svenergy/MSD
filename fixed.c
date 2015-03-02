@@ -9,7 +9,41 @@
 #include "fixed.h"
 
 // Powers of 10 used for fast lookup
-const uint32_t pow10[10] = {1,10,100,1000,10000,100000,1000000,10000000,100000000,100000000};
+const uint32_t pow10[10] = {1,10,100,1000,10000,100000,1000000,10000000,100000000,1000000000};
+
+// Convert time in seconds and microseconds to string, return length
+int32_t secondsToStr(char *str, uint32_t s, uint32_t us, int8_t precision){
+	int32_t strSize = 0;
+
+	/* print seconds */
+	// Count digits
+	int8_t d;
+	for(d=1;d<10;d++){
+		if(pow10[d] > s){
+			break;
+		}
+	}
+	// Print digits
+	int8_t i;
+	for(i=1;i<=d;i++){
+		str[strSize+d-i] = '0' + (char)(s%10);
+		s /= 10;
+	}
+	strSize += d;
+
+	/* print '.' */
+	str[strSize++] = '.';
+
+	/* print microseconds */
+	us /= pow10[6-precision];
+	for(i=1;i<=precision;i++){
+		str[strSize+precision-i] = '0' + (char)(us%10);
+		us /= 10;
+	}
+	strSize += precision;
+
+	return strSize;
+}
 
 // Convert floating point value to decimal exponent floating point
 dec_float_t floatToDecFloat(float fp){
@@ -29,7 +63,7 @@ dec_float_t floatToDecFloat(float fp){
 // Convert decimal floating point to string, return length of string
 // Conversion assumes only integer portion of fix64_t is significant
 // Precision should be set in the range 1 to 6
-int32_t decFloatToStr(dec_float_t *df, char *str, int8_t precision){
+int32_t decFloatToStr(char *str, dec_float_t *df, int8_t precision){
 	int32_t strSize = 0;
 
 	/* Calculate and print sign */
@@ -72,7 +106,7 @@ int32_t decFloatToStr(dec_float_t *df, char *str, int8_t precision){
 	str[strSize++] = 'e';
 	if(exp<0){
 		str[strSize++] = '-';
-		exp = -sig;
+		exp = -exp;
 	}else{
 		str[strSize++] = '+';
 	}

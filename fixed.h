@@ -23,11 +23,14 @@ typedef struct dec_float_t {
 	int32_t exp;
 } dec_float_t;
 
+// Convert time in seconds and microseconds to string, return length
+int32_t secondsToStr(char *str, uint32_t s, uint32_t us, int8_t precision);
+
 // Convert floating point value to decimal exponent floating point
 dec_float_t floatToDecFloat(float fp);
 
 // Convert decimal floating point to string, return length of string
-int32_t decFloatToStr(dec_float_t *df, char *str, int8_t precision);
+int32_t decFloatToStr(char *str, dec_float_t *df, int8_t precision);
 
 // Convert floating point value to fixed point
 fix64_t floatToFix(float fp_val);

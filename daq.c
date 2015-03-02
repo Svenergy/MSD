@@ -414,15 +414,15 @@ void daq_readableFormat(uint16_t *rawData, char *sampleStr){
 	}
 
 	// Format time
-	// Takes 2319cc + 145cc / seconds digit (32us +2us/digit)
-	sampleStr_size += sprintf(sampleStr+sampleStr_size, "%u.%04u", seconds, (uint32_t)microseconds/100); // sprintf does not work with 64-bit ints
+	// 424cc + 77cc / seconds digit (5.9us + 1us / digit) for precision 4
+	sampleStr_size += secondsToStr(sampleStr+sampleStr_size, seconds, (uint32_t)microseconds, 4); // Precision = 4
 
 	// Fast formatting from fixed-point samples
 	for(i=0;i<daq.channel_count;i++){
 		/* Format and append sample string */
 		sampleStr[sampleStr_size++] = ',';
 		// Takes 600cc (8.3us) for precision 4
-		sampleStr_size += decFloatToStr(scaledVal+i, sampleStr+sampleStr_size, 4); // Precision = 4
+		sampleStr_size += decFloatToStr(sampleStr+sampleStr_size, scaledVal+i, 4); // Precision = 4
 	}
 	// 14cc each
 	sampleStr[sampleStr_size++] = '\n';
