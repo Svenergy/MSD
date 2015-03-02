@@ -14,6 +14,9 @@ const char* const errorString[] = {
 };
 
 void error(ERROR_CODE errorCode){
+	// Blue LED on in error
+	Board_LED_Color(LED_BLUE);
+
 	// Only handle the first Error
 	if(inError)
 		return;
@@ -27,9 +30,6 @@ void error(ERROR_CODE errorCode){
 
 	// Disable interrupts and shutdown current processes
 	system_halt();
-
-	// Blue LED on in error
-	Board_LED_Color(LED_BLUE);
 
 	// Delay 5 seconds
 	DWT_Delay(5000000);

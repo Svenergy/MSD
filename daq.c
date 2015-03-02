@@ -19,6 +19,9 @@ static volatile uint64_t dwt_elapsedTime; // Total sampling elapsed time accordi
 // Flag set by SCT0_IRQHandler, accessed by RIT_IRQHandler
 static volatile bool adcUsed;
 
+// Powers of 10 used for fast lookup
+const uint32_t pow10[10] = {1,10,100,1000,10000,100000,1000000,10000000,100000000,100000000};
+
 // Vout PWM
 // Takes 1190cc (16.5us). At 7200Hz, takes 11.9% of cpu time
 void SCT0_IRQHandler(void){
@@ -164,8 +167,6 @@ void daq_init(void)
 	// Set up ADC
 	adc_spi_setup();
 
-	putLineUART("here 0\n");
-
 	// Set up channel ranges in hardware mux
 #ifndef DEBUG
 	int i;
@@ -179,8 +180,6 @@ void daq_init(void)
 	Chip_GPIO_SetPinDIROutput(LPC_GPIO, 0, VOUT_N_SHDN);
 	Chip_GPIO_SetPinState(LPC_GPIO, 0, VOUT_N_SHDN, true);
 
-	putLineUART("here 1\n");
-
 	// Set up Vout PWM
 	Chip_SCTPWM_Init(LPC_SCT0);
 	Chip_SCTPWM_SetRate(LPC_SCT0, 7200); // 7200Hz, 10000 counts per cycle
@@ -189,14 +188,10 @@ void daq_init(void)
 	Chip_SCTPWM_SetDutyCycle(LPC_SCT0, 1, 0); // Set to duty cycle of 0
 	Chip_SCTPWM_Start(LPC_SCT0); // Start PWM
 
-	putLineUART("here 2\n");
-
 	// Create SCT0 Vout PWM interrupt
 	Chip_SCT_EnableEventInt(LPC_SCT0, SCT_EVT_0);
 	NVIC_EnableIRQ(SCT0_IRQn);
 	NVIC_SetPriority(SCT0_IRQn, 0x00); // Set to higher priority than sampling
-
-	putLineUART("here 3\n");
 
 	// Delay 200ms to allow system to stabilize
 	DWT_Delay(200000);
@@ -341,8 +336,20 @@ void daq_writeData(void){
 			} else {
 				// Format data into string
 				char sampleStr[SAMPLE_STR_SIZE];
-				daq_stringFormat(rawData, sampleStr);
-				RingBuffer_writeStr(strBuff, sampleStr);
+				switch (daq.data_mode){
+				case READABLE:
+					daq_readableFormat(rawData, sampleStr);
+					RingBuffer_writeStr(strBuff, sampleStr);
+					break;
+				case HEX:
+					daq_hexFormat(rawData, sampleStr);
+					RingBuffer_writeStr(strBuff, sampleStr);
+					break;
+				case BINARY:
+					RingBuffer_writeData(strBuff, rawData, daq.channel_count*2);
+					sampleStr[0] = '\0';
+					break;
+				}
 #if defined(DEBUG) && defined(PRINT_DATA_UART)
 				putLineUART(sampleStr);
 #endif
@@ -352,12 +359,34 @@ void daq_writeData(void){
 	}
 }
 
-// Convert rawData into a formatted output string
-void daq_stringFormat(uint16_t *rawData, char *sampleStr){
-	// sampleStr Ex. 9999.123400, 1.23456E+01, 1.23456E+01, 1.23456E+01
+// Convert rawData into a hex formatted output string
+void daq_hexFormat(uint16_t *rawData, char *sampleStr){
+	// sampleStr Ex. 18b39ce2b94f
+	int32_t sampleStr_size = 0;
+	int32_t i;
+	for(i=0;i<daq.channel_count;i++){
+		int32_t j;
+		uint32_t val = rawData[i];
+		for(j=0;j<4;j++){
+			char digit = ((val & 0x0000F000) >> 12);
+			if(digit > 9){
+				sampleStr[sampleStr_size++] = digit - 10 + 'A';
+			}else{
+				sampleStr[sampleStr_size++] = digit + '0';
+			}
+			val = val << 4;
+		}
+	}
+	sampleStr[sampleStr_size++] = '\n';
+	sampleStr[sampleStr_size++] = '\0';
+}
+
+// Convert rawData into a readable formatted output string
+void daq_readableFormat(uint16_t *rawData, char *sampleStr){
+	// sampleStr Ex. 9999.1234,1.2345E+01,1.2345E+01,1.2345E+01
 	int8_t sampleStr_size = 0;
 
-	float scaledVal[MAX_CHAN];
+	dec_float_t scaledVal[MAX_CHAN];
 
 	// Calculate sample time with microsecond precision
 	int64_t microseconds = ((int64_t)sampleStrfCount++ * 1000000 ) / daq.sample_rate;
@@ -365,35 +394,73 @@ void daq_stringFormat(uint16_t *rawData, char *sampleStr){
 	uint32_t seconds = startTime + microseconds / 1000000;
 	microseconds = microseconds % 1000000;
 
-	/* Scale samples , takes 1260cc (17.5us) */
+	/* Scale samples , takes 566cc/sample (7.9us) */
 	uint8_t ch = 0;
 	int8_t i;
 	for(i=0;i<MAX_CHAN;i++){
 		if(daq.channel[i].enable){ // Only scale enabled channels
-			// Calculate value scaled to volts
+			// Calculate value scaled to uV
+			intToFix(scaledVal+ch, rawData[ch]);
 			if(daq.channel[i].range == V5){
-				scaledVal[ch] = (rawData[ch] - daq.channel[i].v5_zero_offset) / daq.channel[i].v5_LSB_per_volt;
-				scaledVal[ch] = clamp(scaledVal[ch], 0.0, 5.0);
+				fix_sub(scaledVal+ch, &daq.channel[i].v5_zero_offset);
+				fix_mult(scaledVal+ch, &daq.channel[i].v5_uV_per_LSB);
 			} else {
-				scaledVal[ch] = (rawData[ch] - daq.channel[i].v24_zero_offset) / daq.channel[i].v24_LSB_per_volt;
-				scaledVal[ch] = clamp(scaledVal[ch], -24.0, 24.0);
+				fix_sub(scaledVal+ch, &daq.channel[i].v24_zero_offset);
+				fix_mult(scaledVal+ch, &daq.channel[i].v24_uV_per_LSB);
 			}
-			// Scale volts to [units]
-			scaledVal[ch] *= daq.channel[i].units_per_volt;
+			// Scale volts to [units] * 1000000, ignoring user scale exponent
+			fix_mult(scaledVal+ch, &daq.channel[i].units_per_volt);
+			scaledVal[ch].exp = daq.channel[i].units_per_volt.exp;
 			ch++;
 		}
 	}
 
-    /* String formatting takes 45000cc (625us) */
-	// Format time in output string
+	// Format time
+	// Takes 2448cc + 145cc / seconds digit (34us +2us/digit)
 	sampleStr_size += sprintf(sampleStr+sampleStr_size, "%u.%04u", seconds, (uint32_t)microseconds/100); // sprintf does not work with 64-bit ints
 
-	// Format samples in output string
+	// Fast formatting from fixed-point samples
+	// Takes 3065cc/channel (43us)
 	for(i=0;i<daq.channel_count;i++){
-		// Format and append sample string to output string
-		sampleStr_size += sprintf(sampleStr+sampleStr_size, ", %.5E", scaledVal[i]);
+		/* Format and append sample string */
+		sampleStr[sampleStr_size++] = ',';
+
+		/* Calculate and print sign */
+		int32_t n = scaledVal[i]._int;
+		if(n<0){
+			sampleStr[sampleStr_size++] = '-';
+			n = -n;
+		}
+
+		/* Calculate exponent */
+		int8_t j;
+		for(j=9;j>=0;j--){
+			if(pow10[j] < n){
+				break;
+			}
+		}
+		scaledVal[i].exp += j-6; // Account for the uV to V conversion here
+
+		/* Calculate significand */
+		if(j >= 4){
+			n /= pow10[j-4];
+		}else{
+			n *= pow10[4-j];
+		}
+
+		/* Print integer part */
+		int32_t f = n/pow10[4];
+		sampleStr[sampleStr_size++] = '0' + (char)f;
+		sampleStr[sampleStr_size++] = '.';
+		n -= f * 10000;
+
+		/* Print fractional part and exponent */
+		//2512cc
+		sampleStr_size += sprintf(sampleStr+sampleStr_size, "%04de%+03d", n,scaledVal[i].exp);
 	}
-	sampleStr_size += sprintf(sampleStr+sampleStr_size, "\n");
+	// 14cc each
+	sampleStr[sampleStr_size++] = '\n';
+	sampleStr[sampleStr_size++] = '\0';
 }
 
 // Limit configuration values to valid ranges
@@ -435,17 +502,20 @@ void daq_configDefault(void){
 
 	// Channel_Config defaults
 	for(i=0;i<MAX_CHAN;i++){
-		daq.channel[i].enable = false;				// enable channel
+		daq.channel[i].enable = true;				// enable channel
 		daq.channel[i].range = V24;					// 0-5v input range
-		daq.channel[i].units_per_volt = 1.0;		// output in volts
+
+		daq.channel[i].units_per_volt._int = 1;		// output value per volt
+		daq.channel[i].units_per_volt.frac = 0;
+		daq.channel[i].units_per_volt.exp = 0;
+
 		strcpy(daq.channel[i].unit_name, "Volts");	// name of channel units
 
-		daq.channel[i].v5_zero_offset = 0.0;		// theoretical value of raw 16-bit sample for 0 input voltage
-		daq.channel[i].v5_LSB_per_volt = 12812.75;	// theoretical sensitivity of reading in LSB / volt = (1 << 16) / (4.096 * ( (402+100) / 402 ))
-		daq.channel[i].v24_zero_offset = 32511.13;	// theoretical value of raw 16-bit sample for 0 input voltage = (1 << 16) * ( (1/(1/100+1/402+1/21)) / (1/(1/100+1/402+1/21) + 16.9) )
-		daq.channel[i].v24_LSB_per_volt = 1341.402;	// theoretical sensitivity of reading in LSB / volt = ((1 << 16)/4.096) * (1/(1/100+1/402+1/21+1/16.9)) / 100
+		daq.channel[i].v5_zero_offset = floatToFix(0.0);		// theoretical value of raw 16-bit sample for 0 input voltage
+		daq.channel[i].v5_uV_per_LSB = floatToFix(78.04726);	// theoretical sensitivity of reading in uV / LSB = 1000000 * (4.096 * ( (402+100) / 402 )) / (1 << 16)
+		daq.channel[i].v24_zero_offset = floatToFix(32511.13);	// theoretical value of raw 16-bit sample for 0 input voltage = (1 << 16) * ( (1/(1/100+1/402+1/21)) / (1/(1/100+1/402+1/21) + 16.9) )
+		daq.channel[i].v24_uV_per_LSB = floatToFix(745.48879);	// theoretical sensitivity of reading in uV / LSB = 1000000 / (((1 << 16)/4.096) * (1/(1/100+1/402+1/21+1/16.9)) / 100)
 	}
-	daq.channel[2].enable = true;
 
 	// Count enabled channels
 	daq.channel_count = 0;
@@ -456,7 +526,10 @@ void daq_configDefault(void){
 	}
 
 	// Sample rate in Hz
-	daq.sample_rate = 10;
+	daq.sample_rate = 1000;
+
+	// Data mode can be READABLE, COMPACT, or BINARY
+	daq.data_mode = READABLE;
 
 	// Vout = 5v
 	daq.mv_out = 5000;

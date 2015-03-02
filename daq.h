@@ -12,6 +12,7 @@
 #include "ring_buff.h"
 #include "sys_error.h"
 #include "log.h"
+#include "fixed.h"
 
 #define MAX_CHAN 3 // Total count of available channels
 
@@ -27,23 +28,30 @@ typedef enum {
 	V24,
 } VRANGE_T;
 
+// Data mode type
+typedef enum {
+	READABLE,
+	HEX,
+	BINARY
+} DATA_T;
+
 // Configuration data for each channel
 typedef struct Channel_Config {
 
 // Configured for each use case in config file
 	bool enable;			// enable / disable channel
 	VRANGE_T range;			// select input voltage range
-	float units_per_volt;	// sensitivity of sensor in units / volt
+	dec_float_t units_per_volt; // sensitivity of sensor in units / volt
 	char unit_name[8];		// name of channel unit
 
 // Configured by setting the calibration flag in the config file, then running a calibration cycle. Backed up in device eeprom
 	// volts = (raw_val - v5_zero_offset) / v5_LSB_per_volt
-	float v5_zero_offset;	// value of raw 16-bit sample for 0 input voltage
-	float v5_LSB_per_volt;	// sensitivity of reading in LSB / volt
+	fix64_t v5_zero_offset;	// value of raw 16-bit sample for 0 input voltage
+	fix64_t v5_uV_per_LSB;	// sensitivity of reading in LSB / volt
 
 	// volts = (raw_val - v24_zero_offset) / v24_LSB_per_volt
-	float v24_zero_offset;	// value of raw 16-bit sample for 0 input voltage
-	float v24_LSB_per_volt;	// sensitivity of reading in LSB / volt
+	fix64_t v24_zero_offset;	// value of raw 16-bit sample for 0 input voltage
+	fix64_t v24_uV_per_LSB;	// sensitivity of reading in LSB / volt
 } Channel_Config;
 
 // Configuration data for the entire DAQ
@@ -52,6 +60,7 @@ typedef struct DAQ {
 	uint8_t channel_count;	// Number of channels enabled, calculated from Channel_Config enables
 	int32_t mv_out;			// Output voltage in mv, valid_range = <5000..24000>
 	int32_t sample_rate;	// Sample rate in Hz, valid range = <1..10000>
+	DATA_T data_mode;		// data mode, can be READABLE or COMPACT
 	char user_comment[80];	// User comment to appear at the top of each data file
 } DAQ;
 
@@ -82,8 +91,11 @@ void daq_writeBlock(void);
 // Stop when the raw buffer is empty
 void daq_writeData(void);
 
-// Convert rawData into a formatted output string
-void daq_stringFormat(uint16_t *rawData, char *sampleStr);
+// Convert rawData into a readable formatted output string
+void daq_readableFormat(uint16_t *rawData, char *sampleStr);
+
+// Convert rawData into a hex output string
+void daq_hexFormat(uint16_t *rawData, char *sampleStr);
 
 // Limit configuration values to valid ranges
 void daq_configCheck(void);

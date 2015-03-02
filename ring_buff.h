@@ -7,10 +7,10 @@
 #include "sys_error.h"
 
 typedef struct RingBuffer{
-    char *buffer; // ring buffer data
-    int32_t length; // number of bytes the ring buffer can hold + 1
-    int32_t start; // index of the start
-    int32_t end; // index of the end
+    char *buffer;	// ring buffer data
+    int32_t length;	// number of bytes the ring buffer can hold + 1
+    int32_t start;	// index of the start
+    int32_t end;	// index of the end
 } RingBuffer;
 
 // Allocate memory for the buffer and return a ring buffer struct
