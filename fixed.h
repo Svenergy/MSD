@@ -20,8 +20,14 @@ typedef struct fix64_t {
 typedef struct dec_float_t {
 	uint32_t frac;
 	int32_t  _int;
-	int8_t exp;
+	int32_t exp;
 } dec_float_t;
+
+// Convert floating point value to decimal exponent floating point
+dec_float_t floatToDecFloat(float fp);
+
+// Convert decimal floating point to string, return length of string
+int32_t decFloatToStr(dec_float_t *df, char *str, int8_t precision);
 
 // Convert floating point value to fixed point
 fix64_t floatToFix(float fp_val);

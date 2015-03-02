@@ -41,7 +41,8 @@ typedef struct Channel_Config {
 // Configured for each use case in config file
 	bool enable;			// enable / disable channel
 	VRANGE_T range;			// select input voltage range
-	dec_float_t units_per_volt; // sensitivity of sensor in units / volt
+	dec_float_t units_per_volt; // sensitivity in units/volt
+	fix64_t offset_uV;		// zero offset in uV
 	char unit_name[8];		// name of channel unit
 
 // Configured by setting the calibration flag in the config file, then running a calibration cycle. Backed up in device eeprom

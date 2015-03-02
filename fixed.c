@@ -4,7 +4,68 @@
  *  Created on: Mar 1, 2015
  *      Author: Kyle
  */
+#include <math.h>
+
 #include "fixed.h"
+
+// Powers of 10 used for fast lookup
+const uint32_t pow10[10] = {1,10,100,1000,10000,100000,1000000,10000000,100000000,100000000};
+
+// Convert floating point value to decimal exponent floating point
+dec_float_t floatToDecFloat(float fp){
+	dec_float_t df;
+
+	// Find nearest smaller power of 10
+	df.exp = (int32_t)floor( log10( fabs(fp) ) );
+	float pow10 = pow(10, df.exp);
+
+	fp /= pow10; // Divide floating point by this power of 10
+	fp *= ((uint64_t)1 << 32); // Multiply floating point by (1 << 32)
+	int64_t *res = (int64_t*) &df; // cast to int64_t
+	*res = (int64_t)fp;
+	return df;
+}
+
+// Convert decimal floating point to string, return length of string
+// Conversion assumes only integer portion of fix64_t is significant
+// Precision should be set in the range 1 to 6
+int32_t decFloatToStr(dec_float_t *df, char *str, int8_t precision){
+	int32_t strSize = 0;
+
+	/* Calculate and print sign */
+	int32_t n = df->_int;
+	if(n<0){
+		str[strSize++] = '-';
+		n = -n;
+	}
+
+	/* Calculate exponent */
+	int8_t j;
+	for(j=9;j>=0;j--){
+		if(pow10[j] < n){
+			break;
+		}
+	}
+	int32_t exp = df->exp + j;
+
+	/* Calculate significand */
+	if(j >= precision){
+		n /= pow10[j-precision];
+	}else{
+		n *= pow10[precision-j];
+	}
+
+	/* Print integer part */
+	int32_t f = n/pow10[precision];
+	str[strSize++] = '0' + (char)f;
+	str[strSize++] = '.';
+	n -= f * pow10[precision];
+
+	/* Print fractional part and exponent */
+	strSize += sprintf(str+strSize, "%0*de%+03d", precision, n, exp);
+
+	return strSize;
+}
 
 // Convert floating point value to fixed point
 fix64_t floatToFix(float fp){

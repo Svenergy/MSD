@@ -19,9 +19,6 @@ static volatile uint64_t dwt_elapsedTime; // Total sampling elapsed time accordi
 // Flag set by SCT0_IRQHandler, accessed by RIT_IRQHandler
 static volatile bool adcUsed;
 
-// Powers of 10 used for fast lookup
-const uint32_t pow10[10] = {1,10,100,1000,10000,100000,1000000,10000000,100000000,100000000};
-
 // Vout PWM
 // Takes 1190cc (16.5us). At 7200Hz, takes 11.9% of cpu time
 void SCT0_IRQHandler(void){
@@ -408,9 +405,10 @@ void daq_readableFormat(uint16_t *rawData, char *sampleStr){
 				fix_sub(scaledVal+ch, &daq.channel[i].v24_zero_offset);
 				fix_mult(scaledVal+ch, &daq.channel[i].v24_uV_per_LSB);
 			}
-			// Scale volts to [units] * 1000000, ignoring user scale exponent
+			// Scale uV to [units] * 1000000, ignoring user scale exponent
+			fix_sub(scaledVal+ch, &daq.channel[i].offset_uV);
 			fix_mult(scaledVal+ch, &daq.channel[i].units_per_volt);
-			scaledVal[ch].exp = daq.channel[i].units_per_volt.exp;
+			scaledVal[ch].exp = daq.channel[i].units_per_volt.exp - 6; // account for uV to V conversion
 			ch++;
 		}
 	}
@@ -420,43 +418,11 @@ void daq_readableFormat(uint16_t *rawData, char *sampleStr){
 	sampleStr_size += sprintf(sampleStr+sampleStr_size, "%u.%04u", seconds, (uint32_t)microseconds/100); // sprintf does not work with 64-bit ints
 
 	// Fast formatting from fixed-point samples
-	// Takes 3065cc/channel (43us)
 	for(i=0;i<daq.channel_count;i++){
 		/* Format and append sample string */
 		sampleStr[sampleStr_size++] = ',';
-
-		/* Calculate and print sign */
-		int32_t n = scaledVal[i]._int;
-		if(n<0){
-			sampleStr[sampleStr_size++] = '-';
-			n = -n;
-		}
-
-		/* Calculate exponent */
-		int8_t j;
-		for(j=9;j>=0;j--){
-			if(pow10[j] < n){
-				break;
-			}
-		}
-		scaledVal[i].exp += j-6; // Account for the uV to V conversion here
-
-		/* Calculate significand */
-		if(j >= 4){
-			n /= pow10[j-4];
-		}else{
-			n *= pow10[4-j];
-		}
-
-		/* Print integer part */
-		int32_t f = n/pow10[4];
-		sampleStr[sampleStr_size++] = '0' + (char)f;
-		sampleStr[sampleStr_size++] = '.';
-		n -= f * 10000;
-
-		/* Print fractional part and exponent */
-		//2512cc
-		sampleStr_size += sprintf(sampleStr+sampleStr_size, "%04de%+03d", n,scaledVal[i].exp);
+		// Takes 2781cc (39us)
+		sampleStr_size += decFloatToStr(scaledVal+i, sampleStr+sampleStr_size, 4); // Precision = 4
 	}
 	// 14cc each
 	sampleStr[sampleStr_size++] = '\n';
@@ -505,9 +471,8 @@ void daq_configDefault(void){
 		daq.channel[i].enable = true;				// enable channel
 		daq.channel[i].range = V24;					// 0-5v input range
 
-		daq.channel[i].units_per_volt._int = 1;		// output value per volt
-		daq.channel[i].units_per_volt.frac = 0;
-		daq.channel[i].units_per_volt.exp = 0;
+		daq.channel[i].units_per_volt = floatToDecFloat(1); // sensitivity in units/volt
+		daq.channel[i].offset_uV = floatToFix(0); 			// zero offset in volts
 
 		strcpy(daq.channel[i].unit_name, "Volts");	// name of channel units
 
@@ -526,7 +491,7 @@ void daq_configDefault(void){
 	}
 
 	// Sample rate in Hz
-	daq.sample_rate = 1000;
+	daq.sample_rate = 10;
 
 	// Data mode can be READABLE, COMPACT, or BINARY
 	daq.data_mode = READABLE;
