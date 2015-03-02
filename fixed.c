@@ -33,16 +33,16 @@ int32_t decFloatToStr(dec_float_t *df, char *str, int8_t precision){
 	int32_t strSize = 0;
 
 	/* Calculate and print sign */
-	int32_t n = df->_int;
-	if(n<0){
+	int32_t sig = df->_int;
+	if(sig<0){
 		str[strSize++] = '-';
-		n = -n;
+		sig = -sig;
 	}
 
 	/* Calculate exponent */
 	int8_t j;
 	for(j=9;j>=0;j--){
-		if(pow10[j] < n){
+		if(pow10[j] < sig){
 			break;
 		}
 	}
@@ -50,21 +50,36 @@ int32_t decFloatToStr(dec_float_t *df, char *str, int8_t precision){
 
 	/* Calculate significand */
 	if(j >= precision){
-		n /= pow10[j-precision];
+		sig /= pow10[j-precision];
 	}else{
-		n *= pow10[precision-j];
+		sig *= pow10[precision-j];
 	}
 
 	/* Print integer part */
-	int32_t f = n/pow10[precision];
+	int32_t f = sig/pow10[precision];
 	str[strSize++] = '0' + (char)f;
 	str[strSize++] = '.';
-	n -= f * pow10[precision];
+	sig -= f * pow10[precision];
 
-	/* Print fractional part and exponent */
-	strSize += sprintf(str+strSize, "%0*de%+03d", precision, n, exp);
+	/* Print fractional part */
+	for(j=1;j<=precision;j++){
+		str[strSize+precision-j] = '0' + (char)(sig%10);
+		sig /= 10;
+	}
+	strSize += precision;
 
-	return strSize;
+	/*Print exponent */
+	str[strSize++] = 'e';
+	if(exp<0){
+		str[strSize++] = '-';
+		exp = -sig;
+	}else{
+		str[strSize++] = '+';
+	}
+	str[strSize+1] = '0' + (char)(exp%10);
+	exp /= 10;
+	str[strSize] = '0' + (char)(exp%10);
+	return strSize+2;
 }
 
 // Convert floating point value to fixed point
