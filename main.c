@@ -57,9 +57,13 @@ void SysTick_Handler(void){
 
 	switch(system_state){
 	case STATE_IDLE:
-#ifndef NO_USB
-		// If VBUS is connected and SD card is ready, try to connect as MSC
-		if (Chip_GPIO_GetPinState(LPC_GPIO, 0, VBUS) && sd_state == SD_READY){
+		// Enable USB if VBUS is disconnected
+		;bool vBus = Chip_GPIO_GetPinState(LPC_GPIO, 0, VBUS);
+		if(!vBus){
+			msc_state = MSC_ENABLED;
+		}
+		// If MSC enabled, VBUS is connected, and SD card is ready, try to connect as MSC
+		if (msc_state == MSC_ENABLED && vBus && sd_state == SD_READY){
 			f_mount(NULL,"",0); // unmount file system
 			if (msc_init() == MSC_OK){
 				Board_LED_Color(LED_YELLOW);
@@ -68,7 +72,6 @@ void SysTick_Handler(void){
 				error(ERROR_MSC_INIT);
 			}
 		}
-#endif
 		// If user has short pressed PB and SD card is ready, initiate acquisition
 		if (pb_shortPress() && sd_state == SD_READY){
 			Board_LED_Color(LED_PURPLE);
@@ -85,10 +88,13 @@ void SysTick_Handler(void){
 		}
 		break;
 	case STATE_MSC:
-		// If VBUS is disconnected
-		if (Chip_GPIO_GetPinState(LPC_GPIO, 0, VBUS) == 0){
+		// If VBUS is disconnected or button is short pressed
+		;bool pb;
+		if (Chip_GPIO_GetPinState(LPC_GPIO, 0, VBUS) == 0 || (pb = pb_shortPress())){
+			if(pb){
+				msc_state = MSC_DISABLED;
+			}
 			msc_stop();
-			pb_shortPress(); // Clear pending button presses
 			Board_LED_Color(LED_GREEN);
 			f_mount(&fatfs,"",0); // mount file system
 			system_state = STATE_IDLE;
@@ -185,6 +191,9 @@ int main(void) {
 	}
 	sd_state = SD_READY;
 	Board_LED_Color(LED_GREEN);
+
+	// Allow MSC mode on startup
+	msc_state = MSC_ENABLED;
 
 	// Log startup
 	log_string("Startup");

@@ -49,7 +49,12 @@ int32_t secondsToStr(char *str, uint32_t s, uint32_t us, int8_t precision){
 // Convert floating point value to decimal exponent floating point
 dec_float_t floatToDecFloat(float fp){
 	dec_float_t df;
-
+	if(fp == 0.0){
+		df._int = 0;
+		df.frac = 0;
+		df.exp = 0;
+		return df;
+	}
 	// Find nearest smaller power of 10
 	df.exp = (int32_t)floor( log10( fabs(fp) ) );
 	float pow10 = pow(10, df.exp);
@@ -77,7 +82,7 @@ int32_t decFloatToStr(char *str, dec_float_t *df, int8_t precision){
 	/* Calculate exponent */
 	int8_t j;
 	for(j=9;j>=0;j--){
-		if(pow10[j] < sig){
+		if(pow10[j] <= sig){
 			break;
 		}
 	}
@@ -104,6 +109,77 @@ int32_t decFloatToStr(char *str, dec_float_t *df, int8_t precision){
 	strSize += precision;
 
 	/*Print exponent */
+	str[strSize++] = 'e';
+	if(exp<0){
+		str[strSize++] = '-';
+		exp = -exp;
+	}else{
+		str[strSize++] = '+';
+	}
+	str[strSize+1] = '0' + (char)(exp%10);
+	exp /= 10;
+	str[strSize] = '0' + (char)(exp%10);
+	return strSize+2;
+}
+
+// Convert decimal floating point to string, return length of string
+// Conversion includes the fractional part of the component fix64_t
+// Precision must be set in the range 1 to 20
+int32_t fullDecFloatToStr(char *str, dec_float_t *df, int8_t precision){
+	clamp(precision, 1, 20);
+	int32_t strSize = 0;
+
+	/* Calculate and print sign */
+	int32_t sig = df->_int;
+	if(sig<0){
+		str[strSize++] = '-';
+		sig = -sig;
+	}
+
+	char b[21];
+	b[20] = '0'; // Account for the case when integer and fractional parts are both 0
+	int8_t i;
+	/* Convert integer to decimal */
+	for(i=9;i>=0;i--){
+		b[i] = '0' + (char)(sig % 10);
+		sig /= 10;
+	}
+	/* Convert fraction to decimal */
+	uint64_t frac = df->frac;
+	for(i=10;i<20;i++){
+		frac *= 10;
+		b[i] = '0' + (char)(frac >> 32);
+		frac &= 0x00000000FFFFFFFF;
+	}
+	/* Calculate exponent */
+	for(i=0;i<20;i++){
+		if(b[i] != '0'){
+			break;
+		}
+	}
+	int32_t exp;
+	if(i == 20){ // When significand = 0
+		exp = 0;
+	}else{
+		exp = df->exp + 9 - i;
+	}
+
+	/* Print significand */
+	str[strSize++] = b[i];
+	str[strSize++] = '.';
+	if(i+precision > 20){
+		memcpy(str+strSize, b+i+1, 20-i);
+		strSize += 20-i;
+		int8_t j;
+		for(j=0;j<precision+i-20;j++){
+			str[strSize++] = '0';
+		}
+	}else{
+		memcpy(str+strSize, b+i+1, precision);
+		strSize += precision;
+	}
+
+	/* Print exponent */
 	str[strSize++] = 'e';
 	if(exp<0){
 		str[strSize++] = '-';

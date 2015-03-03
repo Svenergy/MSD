@@ -13,14 +13,19 @@ typedef enum {
 	STATE_DAQ,
 } SYSTEM_STATE;
 
-SYSTEM_STATE system_state;
-
 typedef enum {
 	SD_OUT,
 	SD_READY,
 } SD_STATE;
 
+typedef enum {
+	MSC_ENABLED,
+	MSC_DISABLED,
+} MSC_STATE;
+
+SYSTEM_STATE system_state;
 SD_STATE sd_state;
+MSC_STATE msc_state;
 
 // Halt and power off
 void shutdown(void);

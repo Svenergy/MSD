@@ -232,7 +232,7 @@ void daq_init(void)
 // Write data file header
 void daq_header(void){
 	uint8_t i;
-	char headerStr[80];
+	char headerStr[100];
 	uint8_t headerStr_size = 0;
 
 	/* Make the data file with time-stamped file name */
@@ -243,41 +243,74 @@ void daq_header(void){
 	strftime (fn,40,"%Y-%m-%d_%H-%M-%S_data.txt",tm);
 	f_open(&dataFile,fn,FA_CREATE_ALWAYS | FA_WRITE);
 
-	/* User comment */
-	// Ex. "User header comment"
+	/**** User comment ****
+	 * Ex.
+	 * User header comment
+	 */
 #if defined(DEBUG) && defined(PRINT_DATA_UART)
 	putLineUART(daq.user_comment);
 #endif
-	// Write string to file buffer
 	f_puts(daq.user_comment,&dataFile);
 
-	/* Channel labels */
-	// Ex. "time, ch1, ch2, ch3"
-	headerStr_size = sprintf(headerStr, "\ntime");
-	for(i=0;i<3;i++){
-		if(daq.channel[i].enable){ // Only print enabled channels
-			headerStr_size += sprintf(headerStr+headerStr_size, ", ch%d", i+1);
-		}
-	}
+	/**** Time Stamps ****
+	 * Ex.
+	 * *
+	 * Mon Mar 02 20:02:43 2015
+	 * 1425326563
+	 * *
+	 */
+	sprintf(headerStr, "\n*\n%s\n%d\n*\n", getTimeStr(), Chip_RTC_GetCount(LPC_RTC));
 #if defined(DEBUG) && defined(PRINT_DATA_UART)
 	putLineUART(headerStr);
 #endif
-	// Write string to file buffer
 	f_puts(headerStr, &dataFile);
 
-	/* Units */
-	// Ex. "seconds, volts, volts, volts"
-	headerStr_size = sprintf(headerStr, "\nseconds");
-	for(i=0;i<3;i++){
-		if(daq.channel[i].enable){ // Only print enabled channels
-			headerStr_size += sprintf(headerStr+headerStr_size, ", %s", daq.channel[i].unit_name);
+	/**** Channel Scaling ****
+	 * Ex.
+	 * ch1: Scale = 2.3456e+00 g/V, Offset = 0.0000V
+	 * ch2: Scale = 2.3456e+00 g/V, Offset = 0.0000V
+	 * ch3: Scale = 2.3456e+00 g/V, Offset = 0.0000V
+	 */
+	for(i=0;i<MAX_CHAN;i++){
+		if(daq.channel[i].enable){
+			headerStr_size = sprintf(headerStr, "ch%d: Scale = ", i+1);
+			headerStr_size += fullDecFloatToStr(headerStr+headerStr_size, &daq.channel[i].units_per_volt, 4);
+			headerStr_size += sprintf(headerStr+headerStr_size, " %s/V, Offset = ", daq.channel[i].unit_name);
+			headerStr_size += sprintf(headerStr+headerStr_size, "%.4fV\n", fixToFloat(&daq.channel[i].offset_uV)/1000000.0);
+#if defined(DEBUG) && defined(PRINT_DATA_UART)
+			putLineUART(headerStr);
+#endif
+			f_puts(headerStr, &dataFile);
 		}
 	}
-	headerStr_size += sprintf(headerStr+headerStr_size, "\n");
+
+	/**** Sample Rate ****
+	 * Ex.
+	 * *
+	 * Sample rate = 1000Hz
+	 */
+	sprintf(headerStr, "*\nSample rate = %dHz\n", daq.sample_rate);
 #if defined(DEBUG) && defined(PRINT_DATA_UART)
 	putLineUART(headerStr);
 #endif
-	// Write string to file buffer
+	f_puts(headerStr, &dataFile);
+
+	/**** Channel Labels ****
+	 * Ex.
+	 * *
+	 * time[s], ch1[V], ch1[V], ch1[V]
+	 */
+	headerStr_size = sprintf(headerStr, "*\ntime[s]");
+	for(i=0;i<MAX_CHAN;i++){
+		if(daq.channel[i].enable){
+			headerStr_size += sprintf(headerStr+headerStr_size, ", ch%d[%s]", i+1, daq.channel[i].unit_name);
+		}
+	}
+	headerStr[headerStr_size++] = '\n';
+	headerStr[headerStr_size++] = '\0';
+#if defined(DEBUG) && defined(PRINT_DATA_UART)
+	putLineUART(headerStr);
+#endif
 	f_puts(headerStr, &dataFile);
 }
 
@@ -491,10 +524,10 @@ void daq_configDefault(void){
 		daq.channel[i].enable = true;				// enable channel
 		daq.channel[i].range = V24;					// 0-5v input range
 
-		daq.channel[i].units_per_volt = floatToDecFloat(1); // sensitivity in units/volt
+		daq.channel[i].units_per_volt = floatToDecFloat(1.0); // sensitivity in units/volt
 		daq.channel[i].offset_uV = floatToFix(0); 			// zero offset in volts
 
-		strcpy(daq.channel[i].unit_name, "Volts");	// name of channel units
+		strcpy(daq.channel[i].unit_name, "V");	// name of channel units
 
 		daq.channel[i].v5_zero_offset = floatToFix(0.0);		// theoretical value of raw 16-bit sample for 0 input voltage
 		daq.channel[i].v5_uV_per_LSB = floatToFix(78.04726);	// theoretical sensitivity of reading in uV / LSB = 1000000 * (4.096 * ( (402+100) / 402 )) / (1 << 16)

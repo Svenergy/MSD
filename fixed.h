@@ -10,6 +10,8 @@
 
 #include "board.h"
 
+#define clamp(amt,low,high) ((amt)<(low)?(low):((amt)>(high)?(high):(amt)))
+
 // Signed, 32-bit fractional paer, 32-bit integer part
 typedef struct fix64_t {
 	uint32_t frac;
@@ -30,7 +32,12 @@ int32_t secondsToStr(char *str, uint32_t s, uint32_t us, int8_t precision);
 dec_float_t floatToDecFloat(float fp);
 
 // Convert decimal floating point to string, return length of string
+// Fast, ignores fractional part
 int32_t decFloatToStr(char *str, dec_float_t *df, int8_t precision);
+
+// Convert decimal floating point to string, return length of string
+// Slower, includes fractional part
+int32_t fullDecFloatToStr(char *str, dec_float_t *df, int8_t precision);
 
 // Convert floating point value to fixed point
 fix64_t floatToFix(float fp_val);
