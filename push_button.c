@@ -81,7 +81,7 @@ void pb_init(void){
 	Chip_PININT_SetPinModeLevel(LPC_GPIO_PIN_INT, 1 << 0);
 
 	PININT_EnableLevelInt(LPC_GPIO_PIN_INT, 1 << 0);
-	PININT_HighActive(LPC_GPIO_PIN_INT, 1 << 0);
+	PININT_LowActive(LPC_GPIO_PIN_INT, 1 << 0); // Enable low first so that initial press is not detected
 
 	NVIC_ClearPendingIRQ(PIN_INT0_IRQn);
 	NVIC_EnableIRQ(PIN_INT0_IRQn);

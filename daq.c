@@ -1,20 +1,23 @@
 #include "daq.h"
 
-// DAQ configuration data
-DAQ daq;
+// Buffer used for string formatted data
+RingBuffer *strBuff;
 
 // FatFS file object
 FIL dataFile;
 
-// Buffer used for string formatted data
-RingBuffer *strBuff;
+// DAQ configuration data
+DAQ daq;
+
+// DAQ loop function
+void (*daq_loop)(void);
 
 // Time tracking
 static volatile uint32_t sampleCount; // Count of samples taken in the current recording
 static uint32_t sampleStrfCount; // Count of samples string formatted in the current recording
-static volatile uint32_t startTime; // Absolute start time in seconds
 static volatile uint32_t dwt_lastTime; // Time of the last sample according to the DWT timer, used to measure sampling integral error and jitter
 static volatile uint64_t dwt_elapsedTime; // Total sampling elapsed time according to the DWT timer
+static uint32_t buttonTime; // Time that the record button was pressed, used for trigger delay
 
 // Flag set by SCT0_IRQHandler, accessed by RIT_IRQHandler
 static volatile bool adcUsed;
@@ -135,12 +138,12 @@ void RIT_IRQHandler(void){
 	}
 
 	// Read current time with microsecond precision, increment sample counter
-	uint64_t microseconds = ((uint64_t)++sampleCount * 1000000 ) / daq.sample_rate;
+	uint64_t us = ((uint64_t)++sampleCount * 1000000 ) / daq.sample_rate;
 
 	// Compare to DWT timer
 	dwt_elapsedTime += dwt_currentTime - dwt_lastTime;
 	dwt_lastTime = dwt_currentTime;
-	int32_t dT = microseconds - dwt_elapsedTime/72;
+	int32_t dT = us - dwt_elapsedTime/72;
 
 	// Error if sample timing is off by > 50us
 	if(dT > 3600 || dT < -3600){
@@ -150,10 +153,11 @@ void RIT_IRQHandler(void){
 	RingBuffer_writeData(rawBuff, rawVal, daq.channel_count*2); // 16 bit samples = 2bytes/sample
 }
 
-// Start acquiring data
+// Set up daq
 void daq_init(void)
 {
-	log_string("Acquisition start");
+	log_string("Acquisition Ready");
+	Board_LED_Color(LED_PURPLE);
 
 	// Read config
 	daq_configDefault();
@@ -173,6 +177,79 @@ void daq_init(void)
 	}
 #endif
 
+	// Clear the raw data buffer
+	RingBuffer_clear(rawBuff);
+
+	// Initialize the string formatted buffer
+	strBuff = RingBuffer_init(BLOCK_SIZE + SAMPLE_STR_SIZE);
+
+	// Write data file header to string buffer
+	daq_header();
+
+	// 0 the sample count
+	sampleCount = 0;
+	sampleStrfCount = 0;
+
+	// Save button time for trigger delay
+	buttonTime = Chip_RTC_GetCount(LPC_RTC);
+
+	// Set loop to wait for trigger delay to expire
+	daq_loop = daq_waitForTrigger;
+}
+
+// Start acquiring data
+void daq_record(){
+	log_string("Acquisition Start");
+	Board_LED_Color(LED_RED);
+
+	// Turn on vout
+	daq_voutEnable();
+
+	// Delay 200ms to allow power to stabilize
+	DWT_Delay(200000);
+
+	// Start time according to DWT timer
+	dwt_lastTime = DWT_Get();
+	dwt_elapsedTime = 0;
+
+	// Set up sampling interrupt using RITimer
+	Chip_RIT_Init(LPC_RITIMER);
+
+	/* Set timer compare value and periodic mode */
+	// Do not use Chip_RIT_SetTimerIntervalHz, for timing critical operations, it has an off by 1 error on the period in clock cycles
+	uint64_t cmp_value = Chip_Clock_GetSystemClockRate() / daq.sample_rate - 1;
+	Chip_RIT_SetCompareValue(LPC_RITIMER, cmp_value);
+	Chip_RIT_EnableCompClear(LPC_RITIMER);
+
+	Chip_RIT_Enable(LPC_RITIMER);
+	Chip_RIT_ClearIntStatus(LPC_RITIMER);
+
+	NVIC_EnableIRQ(RITIMER_IRQn);
+	NVIC_SetPriority(RITIMER_IRQn, 0x01); // Set to second highest priority to ensure sample timing accuracy
+
+	// Set loop to write data from buffer to file
+	daq_loop = daq_writeData;
+
+	/* Make the data file with time-stamped file name */
+	time_t t = Chip_RTC_GetCount(LPC_RTC);
+	struct tm * tm;
+	tm = localtime(&t);
+	char fn[40];
+	strftime (fn,40,"%Y-%m-%d_%H-%M-%S_data.txt",tm);
+	f_open(&dataFile,fn,FA_CREATE_ALWAYS | FA_WRITE);
+}
+
+// Wait for the trigger time to start
+void daq_waitForTrigger(void){
+	// Wait for the Trigger Delay to expire
+	if( (int32_t)(Chip_RTC_GetCount(LPC_RTC) - buttonTime) >= daq.trigger_delay){
+		// Set loop to write data from buffer to file
+		daq_record();
+	}
+}
+
+// Enable the output voltage
+void daq_voutEnable(void){
 	// Enable Vout using ~SHDN
 	Chip_GPIO_SetPinDIROutput(LPC_GPIO, 0, VOUT_N_SHDN);
 	Chip_GPIO_SetPinState(LPC_GPIO, 0, VOUT_N_SHDN, true);
@@ -189,44 +266,15 @@ void daq_init(void)
 	Chip_SCT_EnableEventInt(LPC_SCT0, SCT_EVT_0);
 	NVIC_EnableIRQ(SCT0_IRQn);
 	NVIC_SetPriority(SCT0_IRQn, 0x00); // Set to higher priority than sampling
+}
 
-	// Delay 200ms to allow system to stabilize
-	DWT_Delay(200000);
+// Disable the output voltage
+void daq_voutDisable(void){
+	// Stop Vout interrupt
+	NVIC_DisableIRQ(SCT0_IRQn);
 
-	// Write data file header
-	daq_header();
-
-	// Clear the raw data buffer
-	RingBuffer_clear(rawBuff);
-
-	// Initialize the string formatted buffer
-	strBuff = RingBuffer_init(BLOCK_SIZE + SAMPLE_STR_SIZE);
-
-	// 0 the sample count
-	sampleCount = 0;
-	sampleStrfCount = 0;
-
-	// Get actual start time from RTC
-	startTime = 0; //Chip_RTC_GetCount(LPC_RTC);
-
-	// Start time according to DWT timer
-	dwt_lastTime = DWT_Get();
-	dwt_elapsedTime = 0;
-
-	// Set up sampling interrupt using RIT
-	Chip_RIT_Init(LPC_RITIMER);
-
-	/* Set timer compare value and periodic mode */
-	// Do not use Chip_RIT_SetTimerIntervalHz, for timing critical operations, it has an off by 1 error on the period in clock cycles
-	uint64_t cmp_value = Chip_Clock_GetSystemClockRate() / daq.sample_rate - 1;
-	Chip_RIT_SetCompareValue(LPC_RITIMER, cmp_value);
-	Chip_RIT_EnableCompClear(LPC_RITIMER);
-
-	Chip_RIT_Enable(LPC_RITIMER);
-	Chip_RIT_ClearIntStatus(LPC_RITIMER);
-
-	NVIC_EnableIRQ(RITIMER_IRQn);
-	NVIC_SetPriority(RITIMER_IRQn, 0x01); // Set to second highest priority to ensure sample timing accuracy
+	// Disable Vout using ~SHDN
+	Chip_GPIO_SetPinState(LPC_GPIO, 0, VOUT_N_SHDN, false);
 }
 
 // Write data file header
@@ -235,14 +283,6 @@ void daq_header(void){
 	char headerStr[100];
 	uint8_t headerStr_size = 0;
 
-	/* Make the data file with time-stamped file name */
-	time_t t = Chip_RTC_GetCount(LPC_RTC);
-	struct tm * tm;
-	tm = localtime(&t);
-	char fn[40];
-	strftime (fn,40,"%Y-%m-%d_%H-%M-%S_data.txt",tm);
-	f_open(&dataFile,fn,FA_CREATE_ALWAYS | FA_WRITE);
-
 	/**** User comment ****
 	 * Ex.
 	 * User header comment
@@ -250,7 +290,7 @@ void daq_header(void){
 #if defined(DEBUG) && defined(PRINT_DATA_UART)
 	putLineUART(daq.user_comment);
 #endif
-	f_puts(daq.user_comment,&dataFile);
+	RingBuffer_writeStr(strBuff, daq.user_comment);
 
 	/**** Time Stamps ****
 	 * Ex.
@@ -263,7 +303,7 @@ void daq_header(void){
 #if defined(DEBUG) && defined(PRINT_DATA_UART)
 	putLineUART(headerStr);
 #endif
-	f_puts(headerStr, &dataFile);
+	RingBuffer_writeStr(strBuff, headerStr);
 
 	/**** Channel Scaling ****
 	 * Ex.
@@ -280,7 +320,7 @@ void daq_header(void){
 #if defined(DEBUG) && defined(PRINT_DATA_UART)
 			putLineUART(headerStr);
 #endif
-			f_puts(headerStr, &dataFile);
+			RingBuffer_writeStr(strBuff, headerStr);
 		}
 	}
 
@@ -293,7 +333,7 @@ void daq_header(void){
 #if defined(DEBUG) && defined(PRINT_DATA_UART)
 	putLineUART(headerStr);
 #endif
-	f_puts(headerStr, &dataFile);
+	RingBuffer_writeStr(strBuff, headerStr);
 
 	/**** Channel Labels ****
 	 * Ex.
@@ -311,34 +351,32 @@ void daq_header(void){
 #if defined(DEBUG) && defined(PRINT_DATA_UART)
 	putLineUART(headerStr);
 #endif
-	f_puts(headerStr, &dataFile);
+	RingBuffer_writeStr(strBuff, headerStr);
 }
 
 // Stop acquiring data
 void daq_stop(void){
-	// Stop RIT interrupt
-	Chip_RIT_DeInit(LPC_RITIMER);
-	NVIC_DisableIRQ(RITIMER_IRQn);
+	if(daq_loop == daq_writeData){ // If data has been written
+		// Stop RIT interrupt
+		Chip_RIT_DeInit(LPC_RITIMER);
+		NVIC_DisableIRQ(RITIMER_IRQn);
 
-	// Stop Vout interrupt
-	NVIC_DisableIRQ(SCT0_IRQn);
+		// Turn off output voltage
+		daq_voutDisable();
 
-	// Disable Vout using ~SHDN
-	Chip_GPIO_SetPinState(LPC_GPIO, 0, VOUT_N_SHDN, false);
+		log_string("Acquisition Stop");
 
-	log_string("Acquisition stop");
+		// flush ring buffer to disk
+		daq_writeData();
+		daq_writeBlock(); // Write any partial block remaining
 
-	// flush ring buffer to disk
-	daq_writeData();
-	daq_writeBlock(); // Write any partial block remaining
+		// Destroy the string formatted buffer
+		RingBuffer_destroy(strBuff);
 
-	// Destroy the string formatted buffer
-	RingBuffer_destroy(strBuff);
-
-	// Write all buffered data to disk
-	f_close(&dataFile);
+		// Write all buffered data to disk
+		f_close(&dataFile);
+	}
 }
-
 
 // Write a single block to the data file from the string buffer
 void daq_writeBlock(void){
@@ -421,10 +459,7 @@ void daq_readableFormat(uint16_t *rawData, char *sampleStr){
 	dec_float_t scaledVal[MAX_CHAN];
 
 	// Calculate sample time with microsecond precision
-	int64_t microseconds = ((int64_t)sampleStrfCount++ * 1000000 ) / daq.sample_rate;
-
-	uint32_t seconds = startTime + microseconds / 1000000;
-	microseconds = microseconds % 1000000;
+	int64_t us = ((int64_t)sampleStrfCount++ * 1000000 ) / daq.sample_rate;
 
 	/* Scale samples , takes 566cc/sample (7.9us) */
 	uint8_t ch = 0;
@@ -450,7 +485,7 @@ void daq_readableFormat(uint16_t *rawData, char *sampleStr){
 
 	// Format time
 	// 424cc + 77cc / seconds digit (5.9us + 1us / digit) for precision 4
-	sampleStr_size += secondsToStr(sampleStr+sampleStr_size, seconds, (uint32_t)microseconds, daq.time_res);
+	sampleStr_size += usToStr(sampleStr+sampleStr_size, us, daq.time_res);
 
 	// Fast formatting from fixed-point samples
 	for(i=0;i<daq.channel_count;i++){
@@ -537,6 +572,9 @@ void daq_configDefault(void){
 
 	// Sample rate in Hz
 	daq.sample_rate = 1000;
+
+	// Trigger Delay in seconds
+	daq.trigger_delay = 0;
 
 	// Data mode can be READABLE, COMPACT, or BINARY
 	daq.data_mode = READABLE;

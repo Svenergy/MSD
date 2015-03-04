@@ -23,9 +23,9 @@ typedef enum {
 	MSC_DISABLED,
 } MSC_STATE;
 
-SYSTEM_STATE system_state;
-SD_STATE sd_state;
-MSC_STATE msc_state;
+extern SYSTEM_STATE system_state;
+extern SD_STATE sd_state;
+extern MSC_STATE msc_state;
 
 // Halt and power off
 void shutdown(void);

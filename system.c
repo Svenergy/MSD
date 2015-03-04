@@ -1,5 +1,9 @@
 #include "system.h"
 
+SYSTEM_STATE system_state;
+SD_STATE sd_state;
+MSC_STATE msc_state;
+
 // Halt and power off
 void shutdown(void){
 	system_halt();
@@ -15,8 +19,8 @@ void shutdown_message(char *message){
 
 // Safely stop all running system processes
 void system_halt(void){
-	// Stop interrupts
-	void __disable_irq(void);
+	// Disable Systick
+	 SysTick->CTRL  = 0;
 
 	// Shut down procedures
 	if(system_state == STATE_DAQ){
@@ -43,6 +47,8 @@ void system_power_off(void){
 
 	// Turn system power off
 	Chip_GPIO_SetPinState(LPC_GPIO, 0, PWR_ON_OUT, 0);
+	Board_LED_Color(LED_OFF);
+
 	// Wait for user to release power button
 	while (1) {
 		__WFI();

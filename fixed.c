@@ -11,8 +11,11 @@
 // Powers of 10 used for fast lookup
 const uint32_t pow10[10] = {1,10,100,1000,10000,100000,1000000,10000000,100000000,1000000000};
 
-// Convert time in seconds and microseconds to string, return length
-int32_t secondsToStr(char *str, uint32_t s, uint32_t us, int8_t precision){
+// Convert time in microseconds to string, return length
+int32_t usToStr(char *str, int64_t us, int8_t precision){
+	uint32_t s = us / 1000000;
+	us = us % 1000000;
+
 	int32_t strSize = 0;
 
 	/* print seconds */

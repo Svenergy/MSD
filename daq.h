@@ -62,6 +62,7 @@ typedef struct DAQ {
 	int32_t mv_out;			// Output voltage in mv, valid_range = <5000..24000>
 	int32_t sample_rate;	// Sample rate in Hz, valid range = <1..10000>
 	int8_t time_res;		// Sample time resolution in n digits where time is s.n
+	int32_t trigger_delay;	// Delay in seconds before starting the data collection
 	DATA_T data_mode;		// data mode, can be READABLE or COMPACT
 	char user_comment[100];	// User comment to appear at the top of each data file
 } DAQ;
@@ -77,8 +78,23 @@ extern FATFS fatfs[_VOLUMES];
 // DAQ configuration data
 extern DAQ daq;
 
-// Start acquiring data
+// DAQ loop function
+extern void (*daq_loop)(void);
+
+// Set up daq
 void daq_init(void);
+
+// Start acquiring data
+void daq_record(void);
+
+// Wait for the trigger time to start
+void daq_waitForTrigger(void);
+
+// Enable the output voltage
+void daq_voutEnable(void);
+
+// Disable the output voltage
+void daq_voutDisable(void);
 
 // Write data file header
 void daq_header(void);

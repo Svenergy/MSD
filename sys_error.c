@@ -14,22 +14,22 @@ const char* const errorString[] = {
 };
 
 void error(ERROR_CODE errorCode){
-	// Blue LED on in error
-	Board_LED_Color(LED_BLUE);
-
 	// Only handle the first Error
 	if(inError)
 		return;
 	inError = true;
+
+	// Disable systick and shutdown current processes
+	system_halt();
+
+	// Blue LED on in error
+	Board_LED_Color(LED_BLUE);
 
 	// Reset SD card
 	sd_reset(&cardinfo);
 
 	// Write error code to log file
 	log_string(errorString[errorCode]);
-
-	// Disable interrupts and shutdown current processes
-	system_halt();
 
 	// Delay 5 seconds
 	DWT_Delay(5000000);

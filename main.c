@@ -68,16 +68,16 @@ void SysTick_Handler(void){
 			if (msc_init() == MSC_OK){
 				Board_LED_Color(LED_YELLOW);
 				system_state = STATE_MSC;
+				break;
 			}else{ // Error on MSC initialization
 				error(ERROR_MSC_INIT);
 			}
 		}
 		// If user has short pressed PB and SD card is ready, initiate acquisition
 		if (pb_shortPress() && sd_state == SD_READY){
-			Board_LED_Color(LED_PURPLE);
 			daq_init();
-			Board_LED_Color(LED_RED);
 			system_state = STATE_DAQ;
+			break;
 		}
 
 		// Blink LED if in low battery state, otherwise solid green
@@ -95,16 +95,15 @@ void SysTick_Handler(void){
 				msc_state = MSC_DISABLED;
 			}
 			msc_stop();
-			Board_LED_Color(LED_GREEN);
 			f_mount(&fatfs,"",0); // mount file system
+			Board_LED_Color(LED_GREEN);
 			system_state = STATE_IDLE;
 			enterIdleTime = Chip_RTC_GetCount(LPC_RTC);
 		}
 		break;
 	case STATE_DAQ:
-		Board_LED_Color(LED_YELLOW);
-		daq_writeData(); // Write data from buffer to file
-		Board_LED_Color(LED_RED);
+		// Perform the current asynchronous daq action
+		daq_loop();
 
 		// If user has short pressed PB to stop acquisition
 		if (pb_shortPress()){
@@ -169,7 +168,7 @@ int main(void) {
 
 	Board_Init();
 
-	//setTime("2015-02-24 4:41:00");
+	//setTime("2015-03-03 1:23:00");
 
 #ifdef DEBUG
 	// Set up UART for debug
