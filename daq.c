@@ -640,6 +640,8 @@ void daq_configFromFile(void){
 			daq.channel[i].v24_uV_per_LSB = floatToFix(fVal);
 		}
 	}
+	/* Close File */
+	f_close(&config);
 	/* Run ConfigCheck After Reading */
 	daq_configCheck();
 }
