@@ -581,6 +581,8 @@ void daq_configFromFile(void){
 			/* CH Enabled */
 			if (line[23] == 'Y') {
 				daq.channel[i].enable = true;
+			} else if (line[23] == 'N') {
+				daq.channel[i].enable = false;
 			}
 			f_gets(line, sizeof(line), &config);
 
