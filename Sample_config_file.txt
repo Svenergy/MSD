@@ -2,12 +2,10 @@ FW version: v1.0
 
 **** UPDATE DATE+TIME [Y/N] ****
 N
-    DATE [YYYY-MM-DD]
-2015-02-16
-    TIME [HH:MM:SS]
-09:58:23
-
-
+    DATE/TIME [YYYY-MM-DD HH:MM:SS]
+2015-02-16 09:58:23
+    
+	
 **** UPDATE CONFIG [Y/N] ****
 N
     USER HEADER [up to 100 characters]

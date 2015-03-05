@@ -169,7 +169,7 @@ int main(void) {
 
 	Board_Init();
 
-	//setTime("2015-02-24 4:41:00");
+	// ("2015-02-24 4:41:00");
 
 #ifdef DEBUG
 	// Set up UART for debug

@@ -533,10 +533,8 @@ void daq_configFromFile(void){
 		/* Update Date and Time - 4 Lines */
 		f_gets(line, sizeof(line), &config);
 		f_gets(line, sizeof(line), &config);
-		/* Line is now the date string in YYYY-MM-DD */
-		f_gets(line, sizeof(line), &config);
-		f_gets(line, sizeof(line), &config);
-		/* Line is now the time string in HH:MM:SS */
+		/* Line is now the date/time string in YYYY-MM-DD HH:MM:SS */
+		setTime(line);
 	}
 	/* Read 4 lines to get to update config */
 	for (i = 0; i < 4; i++) {

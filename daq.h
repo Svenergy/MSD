@@ -13,6 +13,7 @@
 #include "sys_error.h"
 #include "log.h"
 #include "fixed.h"
+#include "config.h"
 
 #define MAX_CHAN 3 // Total count of available channels
 
