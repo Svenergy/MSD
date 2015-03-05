@@ -19,6 +19,9 @@ static volatile uint32_t dwt_lastTime; // Time of the last sample according to t
 static volatile uint64_t dwt_elapsedTime; // Total sampling elapsed time according to the DWT timer
 static uint32_t buttonTime; // Time that the record button was pressed, used for trigger delay
 
+// Flag cleared when the data file is created, set on init
+static bool noFile;
+
 // Flag set by SCT0_IRQHandler, accessed by RIT_IRQHandler
 static volatile bool adcUsed;
 
@@ -183,8 +186,8 @@ void daq_init(void)
 	// Initialize the string formatted buffer
 	strBuff = RingBuffer_init(BLOCK_SIZE + SAMPLE_STR_SIZE);
 
-	// Write data file header to string buffer
-	daq_header();
+	// Set flag to indicate no data file exists
+	noFile = true;
 
 	// 0 the sample count
 	sampleCount = 0;
@@ -194,7 +197,7 @@ void daq_init(void)
 	buttonTime = Chip_RTC_GetCount(LPC_RTC);
 
 	// Set loop to wait for trigger delay to expire
-	daq_loop = daq_waitForTrigger;
+	daq_loop = daq_triggerDelay;
 }
 
 // Start acquiring data
@@ -229,21 +232,24 @@ void daq_record(){
 
 	// Set loop to write data from buffer to file
 	daq_loop = daq_writeData;
+}
 
-	/* Make the data file with time-stamped file name */
+// Make the data file
+void daq_makeDataFile(void){
 	time_t t = Chip_RTC_GetCount(LPC_RTC);
 	struct tm * tm;
 	tm = localtime(&t);
 	char fn[40];
 	strftime (fn,40,"%Y-%m-%d_%H-%M-%S_data.txt",tm);
 	f_open(&dataFile,fn,FA_CREATE_ALWAYS | FA_WRITE);
+	noFile = false; // File has been created
 }
 
 // Wait for the trigger time to start
-void daq_waitForTrigger(void){
+void daq_triggerDelay(void){
 	// Wait for the Trigger Delay to expire
 	if( (int32_t)(Chip_RTC_GetCount(LPC_RTC) - buttonTime) >= daq.trigger_delay){
-		// Set loop to write data from buffer to file
+		// Start acquiring data
 		daq_record();
 	}
 }
@@ -328,8 +334,10 @@ void daq_header(void){
 	 * Ex.
 	 * *
 	 * Sample rate = 1000Hz
+	 * Sample period = .001s
 	 */
-	sprintf(headerStr, "*\nSample rate = %dHz\n", daq.sample_rate);
+	headerStr_size =sprintf(headerStr, "*\nSample rate = %dHz\n", daq.sample_rate);
+	headerStr_size += sprintf(headerStr+headerStr_size, "Sample period = %.4es\n", 1.0/ daq.sample_rate);
 #if defined(DEBUG) && defined(PRINT_DATA_UART)
 	putLineUART(headerStr);
 #endif
@@ -378,21 +386,13 @@ void daq_stop(void){
 	}
 }
 
-// Write a single block to the data file from the string buffer
-void daq_writeBlock(void){
-	int32_t br;
-	UINT bw;
-	FRESULT errorCode;
-	char data[BLOCK_SIZE];
-	br = RingBuffer_read(strBuff, data, BLOCK_SIZE);
-	if((errorCode = f_write(&dataFile, data, br, &bw)) != FR_OK){
-		error(ERROR_F_WRITE);
-	}
-}
-
 // Write data from raw buffer to file, formatting to string  buffer as an intermediate step
 // Stop when the raw buffer is empty
 void daq_writeData(void){
+	if(noFile){
+		daq_makeDataFile();
+		daq_header(); // Write data file header to string buffer
+	}
 	while(true){
 		// Format raw data into the string buffer until a block is ready
 		while(RingBuffer_getSize(strBuff) < BLOCK_SIZE){
@@ -424,6 +424,18 @@ void daq_writeData(void){
 			}
 		}
 		daq_writeBlock();
+	}
+}
+
+// Write a single block to the data file from the string buffer
+void daq_writeBlock(void){
+	int32_t br;
+	UINT bw;
+	FRESULT errorCode;
+	char data[BLOCK_SIZE];
+	br = RingBuffer_read(strBuff, data, BLOCK_SIZE);
+	if((errorCode = f_write(&dataFile, data, br, &bw)) != FR_OK){
+		error(ERROR_F_WRITE);
 	}
 }
 
@@ -534,8 +546,6 @@ void daq_configCheck(void){
 
 	// Limit output voltage to the range 5-24v
 	daq.mv_out = clamp(daq.mv_out, 5000, 24000);
-
-
 }
 
 // Set channel configuration from the config file on the SD card

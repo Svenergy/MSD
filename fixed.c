@@ -13,10 +13,13 @@ const uint32_t pow10[10] = {1,10,100,1000,10000,100000,1000000,10000000,10000000
 
 // Convert time in microseconds to string, return length
 int32_t usToStr(char *str, int64_t us, int8_t precision){
+	int32_t strSize = 0;
+	if(us < 0){
+		us = -us;
+		str[strSize++] = '-';
+	}
 	uint32_t s = us / 1000000;
 	us = us % 1000000;
-
-	int32_t strSize = 0;
 
 	/* print seconds */
 	// Count digits

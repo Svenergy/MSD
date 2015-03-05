@@ -87,8 +87,11 @@ void daq_init(void);
 // Start acquiring data
 void daq_record(void);
 
+// Make the data file
+void daq_makeDataFile(void);
+
 // Wait for the trigger time to start
-void daq_waitForTrigger(void);
+void daq_triggerDelay(void);
 
 // Enable the output voltage
 void daq_voutEnable(void);
@@ -102,12 +105,12 @@ void daq_header(void);
 // Stop acquiring data
 void daq_stop(void);
 
-// Write a single block to the data file from the string buffer
-void daq_writeBlock(void);
-
 // Write data from raw buffer to file, formatting to string  buffer as an intermediate step
 // Stop when the raw buffer is empty
 void daq_writeData(void);
+
+// Write a single block to the data file from the string buffer
+void daq_writeBlock(void);
 
 // Convert rawData into a readable formatted output string
 void daq_readableFormat(uint16_t *rawData, char *sampleStr);
