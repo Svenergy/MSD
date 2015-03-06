@@ -11,6 +11,7 @@ const char* const errorString[] = {
 	"ERROR_MSC_INIT",
 	"ERROR_SD_INIT",
 	"ERROR_SAMPLE_TIME",
+	"ERROR_READ_CONFIG"
 };
 
 void error(ERROR_CODE errorCode){

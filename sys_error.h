@@ -17,6 +17,7 @@ typedef enum {
 	ERROR_MSC_INIT		= 5,
 	ERROR_SD_INIT		= 6,
 	ERROR_SAMPLE_TIME	= 7,
+	ERROR_READ_CONFIG	= 8,
 } ERROR_CODE;
 
 extern FATFS fatfs[_VOLUMES];

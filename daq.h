@@ -44,7 +44,7 @@ typedef struct Channel_Config {
 	VRANGE_T range;			// select input voltage range
 	dec_float_t units_per_volt; // sensitivity in units/volt
 	fix64_t offset_uV;		// zero offset in uV
-	char* unit_name;		// name of channel unit
+	char unit_name[9];		// name of channel unit
 
 // Configured by setting the calibration flag in the config file, then running a calibration cycle. Backed up in device eeprom
 	// volts = (raw_val - v5_zero_offset) / v5_LSB_per_volt
@@ -65,7 +65,7 @@ typedef struct DAQ {
 	int8_t time_res;		// Sample time resolution in n digits where time is s.n
 	int32_t trigger_delay;	// Delay in seconds before starting the data collection
 	DATA_T data_mode;		// data mode, can be READABLE or COMPACT
-	char* user_comment;		// User comment to appear at the top of each data file
+	char user_comment[101];		// User comment to appear at the top of each data file
 } DAQ;
 
 extern uint8_t rsel_pins[3];
@@ -121,9 +121,6 @@ void daq_hexFormat(uint16_t *rawData, char *sampleStr);
 
 // Limit configuration values to valid ranges
 void daq_configCheck(void);
-
-// Set channel configuration from the config file on the SD card
-void daq_configFromFile(void);
 
 // Set channel configuration defaults
 void daq_configDefault(void);

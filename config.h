@@ -9,9 +9,14 @@
 #define CONFIG_H_
 
 #include <time.h>
+#include <stdlib.h>
 
 #include "board.h"
+#include "fixed.h"
+#include "ff.h"
+#include "daq.h"
 
+void config_fromFile(void);
 
 void setTime(char *timeStr);
 
