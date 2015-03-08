@@ -1,5 +1,12 @@
 #include "daq.h"
 
+// Data type strings
+static const char* const dataType[] = {
+	"READABLE",
+	"HEX",
+	"BINARY"
+};
+
 // Buffer used for string formatted data
 RingBuffer *strBuff;
 
@@ -240,7 +247,13 @@ void daq_makeDataFile(void){
 	struct tm * tm;
 	tm = localtime(&t);
 	char fn[40];
-	strftime (fn,40,"%Y-%m-%d_%H-%M-%S_data.txt",tm);
+	uint8_t fn_size = 0;
+	fn_size += strftime(fn,40,"%Y-%m-%d_%H-%M-%S_data",tm);
+	if(daq.data_type == READABLE){
+		strcat(fn+fn_size,".txt");
+	}else{
+		strcat(fn+fn_size,".dat");
+	}
 	f_open(&dataFile,fn,FA_CREATE_ALWAYS | FA_WRITE);
 	noFile = false; // File has been created
 }
@@ -286,26 +299,34 @@ void daq_voutDisable(void){
 // Write data file header
 void daq_header(void){
 	uint8_t i;
-	char headerStr[100];
+	char headerStr[120];
 	uint8_t headerStr_size = 0;
+
+	/**** Data type ****
+	 * Ex.
+	 * data type, HEX
+	 */
+	sprintf(headerStr, "data type, %s\n",dataType[daq.data_type]);
+#if defined(DEBUG) && defined(PRINT_DATA_UART)
+	putLineUART(headerStr);
+#endif
+	RingBuffer_writeStr(strBuff, headerStr);
 
 	/**** User comment ****
 	 * Ex.
-	 * User header comment
+	 * comment, User header comment
 	 */
+	sprintf(headerStr, "comment, %s\n",daq.user_comment);
 #if defined(DEBUG) && defined(PRINT_DATA_UART)
-	putLineUART(daq.user_comment);
+	putLineUART(headerStr);
 #endif
-	RingBuffer_writeStr(strBuff, daq.user_comment);
+	RingBuffer_writeStr(strBuff, headerStr);
 
 	/**** Time Stamps ****
 	 * Ex.
-	 * *
-	 * Mon Mar 02 20:02:43 2015
-	 * 1425326563
-	 * *
+	 * date time, Mon Mar 02 20:02:43 2015
 	 */
-	sprintf(headerStr, "\n*\n%s\n%d\n*\n", getTimeStr(), Chip_RTC_GetCount(LPC_RTC));
+	sprintf(headerStr, "date time, %s\n", getTimeStr());
 #if defined(DEBUG) && defined(PRINT_DATA_UART)
 	putLineUART(headerStr);
 #endif
@@ -313,16 +334,31 @@ void daq_header(void){
 
 	/**** Channel Scaling ****
 	 * Ex.
-	 * ch1: Scale = 2.3456e+00 g/V, Offset = 0.0000V
-	 * ch2: Scale = 2.3456e+00 g/V, Offset = 0.0000V
-	 * ch3: Scale = 2.3456e+00 g/V, Offset = 0.0000V
+	 * ch1, scale, 1.000000e+00, V/V, offset, 0.000000e+00, V, cscale, 7.454887e-04, V/LSB, coffset, 3.251113e+04, LSB
+	 * ch2, scale, 1.000000e+00, V/V, offset, 0.000000e+00, V, cscale, 7.454887e-04, V/LSB, coffset, 3.251113e+04, LSB
+	 * ch3, scale, 1.000000e+00, V/V, offset, 0.000000e+00, V, cscale, 7.454887e-04, V/LSB, coffset, 3.251113e+04, LSB
 	 */
 	for(i=0;i<MAX_CHAN;i++){
 		if(daq.channel[i].enable){
-			headerStr_size = sprintf(headerStr, "ch%d: Scale = ", i+1);
-			headerStr_size += fullDecFloatToStr(headerStr+headerStr_size, &daq.channel[i].units_per_volt, 4);
-			headerStr_size += sprintf(headerStr+headerStr_size, " %s/V, Offset = ", daq.channel[i].unit_name);
-			headerStr_size += sprintf(headerStr+headerStr_size, "%.4fV\n", fixToFloat(&daq.channel[i].offset_uV)/1000000.0);
+			headerStr_size = sprintf(headerStr, "ch%d, scale, ", i+1);
+			headerStr_size += fullDecFloatToStr(headerStr+headerStr_size, &daq.channel[i].units_per_volt, 6);
+			headerStr_size += sprintf(headerStr+headerStr_size, ", %s/V, offset, ", daq.channel[i].unit_name);
+			headerStr_size += fixToStr(headerStr+headerStr_size, &daq.channel[i].offset_uV, 6, -6);
+			headerStr_size += sprintf(headerStr+headerStr_size, ", V, ");
+			fix64_t *v_per_LSB;
+			fix64_t *off_LSB;
+			if(daq.channel[i].range == V5){
+				v_per_LSB = &daq.channel[i].v5_uV_per_LSB;
+				off_LSB =	&daq.channel[i].v5_zero_offset;
+			}else{
+				v_per_LSB = &daq.channel[i].v24_uV_per_LSB;
+				off_LSB =	&daq.channel[i].v24_zero_offset;
+			}
+			headerStr_size += sprintf(headerStr+headerStr_size, "cscale, ");
+			headerStr_size += fixToStr(headerStr+headerStr_size, v_per_LSB, 6, -6);
+			headerStr_size += sprintf(headerStr+headerStr_size, ", V/LSB, coffset, ");
+			headerStr_size += fixToStr(headerStr+headerStr_size, off_LSB, 6, 0);
+			sprintf(headerStr+headerStr_size, ", LSB\n");
 #if defined(DEBUG) && defined(PRINT_DATA_UART)
 			putLineUART(headerStr);
 #endif
@@ -332,12 +368,21 @@ void daq_header(void){
 
 	/**** Sample Rate ****
 	 * Ex.
-	 * *
-	 * Sample rate = 1000Hz
-	 * Sample period = .001s
+	 * sample rate, 1000, Hz
+	 * sample period, 0.001, s
 	 */
-	headerStr_size =sprintf(headerStr, "*\nSample rate = %dHz\n", daq.sample_rate);
-	headerStr_size += sprintf(headerStr+headerStr_size, "Sample period = %.4es\n", 1.0/ daq.sample_rate);
+	headerStr_size = sprintf(headerStr, "sample rate, %d, Hz\n", daq.sample_rate);
+	headerStr_size += sprintf(headerStr+headerStr_size, "sample period, %.6f, s\n", 1.0 / daq.sample_rate);
+#if defined(DEBUG) && defined(PRINT_DATA_UART)
+	putLineUART(headerStr);
+#endif
+	RingBuffer_writeStr(strBuff, headerStr);
+
+	/**** End header ****
+	 * Ex.
+	 * end header
+	 */
+	strcpy(headerStr, "end header\n");
 #if defined(DEBUG) && defined(PRINT_DATA_UART)
 	putLineUART(headerStr);
 #endif
@@ -345,21 +390,22 @@ void daq_header(void){
 
 	/**** Channel Labels ****
 	 * Ex.
-	 * *
 	 * time[s], ch1[V], ch1[V], ch1[V]
 	 */
-	headerStr_size = sprintf(headerStr, "*\ntime[s]");
-	for(i=0;i<MAX_CHAN;i++){
-		if(daq.channel[i].enable){
-			headerStr_size += sprintf(headerStr+headerStr_size, ", ch%d[%s]", i+1, daq.channel[i].unit_name);
+	if(daq.data_type == READABLE){
+		headerStr_size = sprintf(headerStr, "time[s]");
+		for(i=0;i<MAX_CHAN;i++){
+			if(daq.channel[i].enable){
+				headerStr_size += sprintf(headerStr+headerStr_size, ", ch%d[%s]", i+1, daq.channel[i].unit_name);
+			}
 		}
-	}
-	headerStr[headerStr_size++] = '\n';
-	headerStr[headerStr_size++] = '\0';
+		headerStr[headerStr_size++] = '\n';
+		headerStr[headerStr_size++] = '\0';
 #if defined(DEBUG) && defined(PRINT_DATA_UART)
-	putLineUART(headerStr);
+		putLineUART(headerStr);
 #endif
-	RingBuffer_writeStr(strBuff, headerStr);
+		RingBuffer_writeStr(strBuff, headerStr);
+	}
 }
 
 // Stop acquiring data
@@ -404,7 +450,7 @@ void daq_writeData(void){
 			} else {
 				// Format data into string
 				char sampleStr[SAMPLE_STR_SIZE];
-				switch (daq.data_mode){
+				switch (daq.data_type){
 				case READABLE:
 					daq_readableFormat(rawData, sampleStr);
 					RingBuffer_writeStr(strBuff, sampleStr);
@@ -434,9 +480,11 @@ void daq_writeBlock(void){
 	FRESULT errorCode;
 	char data[BLOCK_SIZE];
 	br = RingBuffer_read(strBuff, data, BLOCK_SIZE);
+	Board_LED_Color(LED_YELLOW);
 	if((errorCode = f_write(&dataFile, data, br, &bw)) != FR_OK){
 		error(ERROR_F_WRITE);
 	}
+	Board_LED_Color(LED_RED);
 }
 
 // Convert rawData into a hex formatted output string
@@ -569,13 +617,13 @@ void daq_configDefault(void){
 	}
 
 	// Sample rate in Hz
-	daq.sample_rate = 1000;
+	daq.sample_rate = 10000;
 
 	// Trigger Delay in seconds
 	daq.trigger_delay = 0;
 
 	// Data mode can be READABLE, HEX, or BINARY
-	daq.data_mode = READABLE;
+	daq.data_type = BINARY;
 
 	// Vout = 5v
 	daq.mv_out = 5000;

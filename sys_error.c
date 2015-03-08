@@ -2,7 +2,7 @@
 
 volatile bool inError; // Set when handling an error to prevent recursion
 
-const char* const errorString[] = {
+static const char* const errorString[] = {
 	"ERROR_UNKNOWN",
 	"ERROR_F_WRITE",
 	"ERROR_BUF_OVF",

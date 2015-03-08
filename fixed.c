@@ -4,7 +4,6 @@
  *  Created on: Mar 1, 2015
  *      Author: Kyle
  */
-#include <math.h>
 
 #include "fixed.h"
 
@@ -132,11 +131,16 @@ int32_t decFloatToStr(char *str, dec_float_t *df, int8_t precision){
 // Conversion includes the fractional part of the component fix64_t
 // Precision must be set in the range 1 to 20
 int32_t fullDecFloatToStr(char *str, dec_float_t *df, int8_t precision){
+	return fixToStr(str, (fix64_t *)df, precision, df->exp);
+}
+
+// Convert fix64_t to string, return length of string, exp is a decimal offset to the exponenet
+int32_t fixToStr(char *str, fix64_t *fx, int8_t precision, int32_t exp){
 	clamp(precision, 1, 20);
 	int32_t strSize = 0;
 
 	/* Calculate and print sign */
-	int32_t sig = df->_int;
+	int32_t sig = fx->_int;
 	if(sig<0){
 		str[strSize++] = '-';
 		sig = -sig;
@@ -151,7 +155,7 @@ int32_t fullDecFloatToStr(char *str, dec_float_t *df, int8_t precision){
 		sig /= 10;
 	}
 	/* Convert fraction to decimal */
-	uint64_t frac = df->frac;
+	uint64_t frac = fx->frac;
 	for(i=10;i<20;i++){
 		frac *= 10;
 		b[i] = '0' + (char)(frac >> 32);
@@ -160,14 +164,12 @@ int32_t fullDecFloatToStr(char *str, dec_float_t *df, int8_t precision){
 	/* Calculate exponent */
 	for(i=0;i<20;i++){
 		if(b[i] != '0'){
+			exp += 9 - i;
 			break;
 		}
 	}
-	int32_t exp;
-	if(i == 20){ // When significand = 0
+	if(i == 20){ // When  0
 		exp = 0;
-	}else{
-		exp = df->exp + 9 - i;
 	}
 
 	/* Print significand */

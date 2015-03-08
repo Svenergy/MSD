@@ -29,7 +29,7 @@ typedef enum {
 	V24,
 } VRANGE_T;
 
-// Data mode type
+// Data type
 typedef enum {
 	READABLE,
 	HEX,
@@ -49,11 +49,11 @@ typedef struct Channel_Config {
 // Configured by setting the calibration flag in the config file, then running a calibration cycle. Backed up in device eeprom
 	// volts = (raw_val - v5_zero_offset) / v5_LSB_per_volt
 	fix64_t v5_zero_offset;	// value of raw 16-bit sample for 0 input voltage
-	fix64_t v5_uV_per_LSB;	// sensitivity of reading in LSB / volt
+	fix64_t v5_uV_per_LSB;	// sensitivity of reading in uV / LSB
 
 	// volts = (raw_val - v24_zero_offset) / v24_LSB_per_volt
 	fix64_t v24_zero_offset;	// value of raw 16-bit sample for 0 input voltage
-	fix64_t v24_uV_per_LSB;	// sensitivity of reading in LSB / volt
+	fix64_t v24_uV_per_LSB;	// sensitivity of reading in uV / LSB
 } Channel_Config;
 
 // Configuration data for the entire DAQ
@@ -64,7 +64,7 @@ typedef struct DAQ {
 	int32_t sample_rate;	// Sample rate in Hz, valid range = <1..10000>
 	int8_t time_res;		// Sample time resolution in n digits where time is s.n
 	int32_t trigger_delay;	// Delay in seconds before starting the data collection
-	DATA_T data_mode;		// data mode, can be READABLE or COMPACT
+	DATA_T data_type;		// data mode, can be READABLE or COMPACT
 	char user_comment[101];		// User comment to appear at the top of each data file
 } DAQ;
 

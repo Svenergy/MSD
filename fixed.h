@@ -8,6 +8,9 @@
 #ifndef FIXED_H_
 #define FIXED_H_
 
+#include <math.h>
+#include <string.h>
+
 #include "board.h"
 
 #define clamp(amt,low,high) ((amt)<(low)?(low):((amt)>(high)?(high):(amt)))
@@ -38,6 +41,9 @@ int32_t decFloatToStr(char *str, dec_float_t *df, int8_t precision);
 // Convert decimal floating point to string, return length of string
 // Slower, includes fractional part
 int32_t fullDecFloatToStr(char *str, dec_float_t *df, int8_t precision);
+
+// Convert fix64_t to string, return length of string
+int32_t fixToStr(char *str, fix64_t *fx, int8_t precision, int32_t exp);
 
 // Convert floating point value to fixed point
 fix64_t floatToFix(float fp_val);

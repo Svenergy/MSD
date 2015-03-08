@@ -54,11 +54,11 @@ void config_fromFile(void){
 		f_gets(line, sizeof(line), &config);
 		/* Line is now data mode */
 		if (line[0] == 'R') {
-			daq.data_mode = READABLE;
+			daq.data_type = READABLE;
 		} else if (line[0] == 'H') {
-			daq.data_mode = HEX;
+			daq.data_type = HEX;
 		} else if (line[0] == 'B') {
-			daq.data_mode = BINARY;
+			daq.data_type = BINARY;
 		}
 		for (i = 0; i<MAX_CHAN; i++) {
 			f_gets(line, sizeof(line), &config);
@@ -147,7 +147,7 @@ void setTime(char *timeStr){
 		&(tm.tm_year), &(tm.tm_mon), &(tm.tm_mday), &(tm.tm_hour), &(tm.tm_min), &(tm.tm_sec));
 	tm.tm_year -= 1900;
 	tm.tm_mon -= 1;
-	tm.tm_isdst = -1; // Assume US rules for DST
+	tm.tm_isdst = 0; // No DST accounting
 	t = mktime(&tm);
 
 	Chip_RTC_Reset(LPC_RTC); // Set then clear SWRESET bit
