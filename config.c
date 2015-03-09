@@ -59,11 +59,11 @@ void config_fromFile(void){
 		getNonBlankLine(line,&config);
 		getNonBlankLine(line,&config);
 		/* Line is now data mode */
-		if (line[0] == 'R') {
+		if (line[0] == 'R' || line[0] == 'r') {
 			daq.data_type = READABLE;
-		} else if (line[0] == 'H') {
+		} else if (line[0] == 'H' || line[0] == 'h') {
 			daq.data_type = HEX;
-		} else if (line[0] == 'B') {
+		} else if (line[0] == 'B' || line[0] == 'b') {
 			daq.data_type = BINARY;
 		} else {
 			error(ERROR_READ_CONFIG);
@@ -75,9 +75,9 @@ void config_fromFile(void){
 			/* CH Enabled */
 			strtok(line,":");
 			sscanf(line, "%c", cVal);
-			if (cVal == 'Y') {
+			if (cVal == 'Y' || cVal == 'y') {
 				daq.channel[i].enable = true;
-			} else if (cVal == 'N') {
+			} else if (cVal == 'N' || cVal == 'n') {
 				daq.channel[i].enable = false;
 			} else {
 				error(ERROR_READ_CONFIG);
