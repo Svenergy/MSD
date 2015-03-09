@@ -7,7 +7,7 @@ void config_fromFile(void){
 	char line[101]; /* Line Buffer */
 	int i = 0;
 	int iVal = 0;
-	char cVal = '';
+	char cVal = 0;
 	float fVal = 0;
 
 	if (f_open(&config, "config.txt", FA_READ)) {
@@ -186,8 +186,8 @@ char *getTimeStr(){
 }
 
 void getNonBlankLine(char* line, FIL* fil){
-	f_gets(line, sizeof(line), &fil);
+	f_gets(line, sizeof(line), fil);
 	while (line[0] == 0) {
-		f_gets(line, sizeof(line), &fil);
+		f_gets(line, sizeof(line), fil);
 	}
 }

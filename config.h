@@ -22,4 +22,6 @@ void setTime(char *timeStr);
 
 char *getTimeStr(void);
 
+void getNonBlankLine(char* line, FIL* fil);
+
 #endif /* CONFIG_H_ */
