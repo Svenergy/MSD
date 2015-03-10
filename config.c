@@ -14,50 +14,39 @@ void config_fromFile(void){
 		error(ERROR_READ_CONFIG);
 	}
 	/* Read lines to get to update Date/Time */
-	getNonBlankLine(line,&config);
-	getNonBlankLine(line,&config);
-	getNonBlankLine(line,&config);
+	getNonBlankLine(line,&config, 2);
 
 	if (line[0] == 'Y' || line[0] == 'y') {
 		/* Update Date and Time - 4 Lines */
-		getNonBlankLine(line,&config);
-		getNonBlankLine(line,&config);
+		getNonBlankLine(line,&config, 1);
 		/* Line is now the date/time string in YYYY-MM-DD HH:MM:SS */
 		setTime(line);
 
 		/* Read lines to get to update config */
-		getNonBlankLine(line,&config);
-		getNonBlankLine(line,&config);
+		getNonBlankLine(line,&config, 1);
 
 	} else {
-		for (i = 0; i < 4; i++) {
-			getNonBlankLine(line,&config);
-		}
+		getNonBlankLine(line,&config, 3);
 	}
 
 	if (line[0] == 'Y' || line[0] == 'y') {
 		/* Update Config - */
-		getNonBlankLine(line,&config);
-		getNonBlankLine(line,&config);
+		getNonBlankLine(line,&config, 1);
 		/* Line is now the user header */
 		memcpy(daq.user_comment, line, 101);
-		getNonBlankLine(line,&config);
-		getNonBlankLine(line,&config);
+		getNonBlankLine(line,&config, 1);
 		/* Line is now Output Voltage */
 		sscanf(line, "%f", fVal);
 		daq.mv_out = (int32_t)(fVal * 1000);
-		getNonBlankLine(line,&config);
-		getNonBlankLine(line,&config);
+		getNonBlankLine(line,&config, 1);
 		/* Line is now Sample Rate */
 		sscanf(line, "%d", iVal);
 		daq.sample_rate = (int32_t)iVal;
-		getNonBlankLine(line,&config);
-		getNonBlankLine(line,&config);
+		getNonBlankLine(line,&config, 1);
 		/* Line is now trigger delay */
 		sscanf(line, "%d", iVal);
 		daq.trigger_delay = iVal;
-		getNonBlankLine(line,&config);
-		getNonBlankLine(line,&config);
+		getNonBlankLine(line,&config, 1);
 		/* Line is now data mode */
 		if (line[0] == 'R' || line[0] == 'r') {
 			daq.data_type = READABLE;
@@ -69,7 +58,7 @@ void config_fromFile(void){
 			error(ERROR_READ_CONFIG);
 		}
 		for (i = 0; i<MAX_CHAN; i++) {
-			getNonBlankLine(line,&config);
+			getNonBlankLine(line,&config, 0);
 
 			/* Channel Config */
 			/* CH Enabled */
@@ -82,7 +71,7 @@ void config_fromFile(void){
 			} else {
 				error(ERROR_READ_CONFIG);
 			}
-			getNonBlankLine(line,&config);
+			getNonBlankLine(line,&config, 0);
 			/* CH Range */
 			strtok(line,":");
 			sscanf(line, "%c", cVal);
@@ -93,17 +82,17 @@ void config_fromFile(void){
 			} else {
 				error(ERROR_READ_CONFIG);
 			}
-			getNonBlankLine(line,&config);
+			getNonBlankLine(line,&config, 0);
 
 			/* CH Units */
 			memcpy(daq.channel[i].unit_name, line+23, 9);
-			getNonBlankLine(line,&config);
+			getNonBlankLine(line,&config, 0);
 
 			/* CH Units/Volt */
 			strtok(line,":");
 			sscanf(line, "%f", fVal);
 			daq.channel[i].units_per_volt = floatToDecFloat(fVal);
-			getNonBlankLine(line,&config);
+			getNonBlankLine(line,&config, 0);
 
 			/* CH Zero Offset */
 			strtok(line,":");
@@ -111,37 +100,34 @@ void config_fromFile(void){
 			daq.channel[i].offset_uV = floatToFix(fVal);
 
 			/* Read lines to get to update calibration */
-			getNonBlankLine(line,&config);
-			getNonBlankLine(line,&config);
+			getNonBlankLine(line,&config, 1);
 		}
 	} else {
-		for (i = 0; i < 30; i++) {
-			/* Move to next section if no update config */
-			getNonBlankLine(line,&config);
-		}
+		/* Move to next section if no update config */
+		getNonBlankLine(line,&config, 29);
 	}
 	if (line[0] == 'Y' || line[0] == 'y') {
 		/* Update Calibration - 18 Lines (Maybe) */
 		for (i = 0; i<MAX_CHAN;i++) {
-			getNonBlankLine(line,&config);
+			getNonBlankLine(line,&config, 0);
 
 			/* 5V Zero Offset */
 			strtok(line,":");
 			sscanf(line, "%f", fVal);
 			daq.channel[i].v5_zero_offset = floatToFix(fVal);
-			getNonBlankLine(line,&config);
+			getNonBlankLine(line,&config, 0);
 
 			/* 5V LSB/Volt */
 			strtok(line,":");
 			sscanf(line, "%f", fVal);
 			daq.channel[i].v5_uV_per_LSB = floatToFix(fVal);
-			getNonBlankLine(line,&config);
+			getNonBlankLine(line,&config, 0);
 
 			/* 24V Zero Offset */
 			strtok(line,":");
 			sscanf(line, "%f", fVal);
 			daq.channel[i].v24_zero_offset = floatToFix(fVal);
-			getNonBlankLine(line,&config);
+			getNonBlankLine(line,&config, 0);
 
 			/* 24V LSB/Volt */
 			strtok(line,":");
@@ -185,9 +171,20 @@ char *getTimeStr(){
 	return asctime(timeinfo);
 }
 
-void getNonBlankLine(char* line, FIL* fil){
+void getNonBlankLine(char* line, FIL* fil, int32_t skipCount){
 	f_gets(line, sizeof(line), fil);
-	while (line[0] == 0) {
-		f_gets(line, sizeof(line), fil);
+	int32_t i;
+	for(i=0;i<=skipCount;i++){
+		while (line[0] == '\0') {
+			f_gets(line, sizeof(line), fil);
+		}
 	}
+}
+
+int32_t countToColon(char* line) {
+	int32_t count = 0;
+	while ((line[count] != ":") && (line[count] != '\0')) {
+		count++;
+	}
+	return count;
 }

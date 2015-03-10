@@ -22,6 +22,6 @@ void setTime(char *timeStr);
 
 char *getTimeStr(void);
 
-void getNonBlankLine(char* line, FIL* fil);
+void getNonBlankLine(char* line, FIL* fil, int32_t skipCount);
 
 #endif /* CONFIG_H_ */
