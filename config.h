@@ -16,13 +16,19 @@
 #include "ff.h"
 #include "daq.h"
 
-void config_fromFile(void);
+void configStart(void);
+
+void writeConfigToFile(void);
+
+void readConfigFromFile(void);
 
 void setTime(char *timeStr);
 
 char *getTimeStr(void);
 
-void getNonBlankLine(char* line, FIL* fil, int32_t skipCount);
+void putsAndNewLines(const char* string, int32_t lineCount);
+
+void getNonBlankLine(char* line, int32_t skipCount);
 
 int32_t countToColon(char* line);
 

@@ -191,7 +191,8 @@ int main(void) {
 	sd_state = SD_READY;
 	Board_LED_Color(LED_GREEN);
 
-	// TODO: stuff to read/write config
+	// Setup config
+	configStart();
 
 	// Allow MSC mode on startup
 	msc_state = MSC_ENABLED;
