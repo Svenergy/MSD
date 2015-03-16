@@ -14,13 +14,12 @@ void PIN_INT0_IRQHandler(void){
 	switch (pbState){
 	case READY:
 		PININT_DisableLevelInt(LPC_GPIO_PIN_INT, 1 << 0);
-		Chip_MRT_SetEnabled(LPC_MRT_CH(0));
 		Chip_MRT_SetMode(LPC_MRT_CH(0), MRT_MODE_ONESHOT);
-		Chip_MRT_SetInterval(LPC_MRT_CH(0), (20 * (Chip_Clock_GetSystemClockRate() / 1000)) | MRT_INTVAL_LOAD); //20ms
+		Chip_MRT_SetInterval(LPC_MRT_CH(0), (20 * (SystemCoreClock / 1000)) | MRT_INTVAL_LOAD); //20ms
 		break;
 	case TRIGGERED:
 		pbShortPress = true;
-		Chip_MRT_SetDisabled(LPC_MRT_CH(0));
+		Chip_MRT_SetInterval(LPC_MRT_CH(0), MRT_INTVAL_LOAD);
 	case LONGPRESS:
 		PININT_EnableLevelInt(LPC_GPIO_PIN_INT, 1 << 0);
 		PININT_HighActive(LPC_GPIO_PIN_INT, 1 << 0);
@@ -30,16 +29,14 @@ void PIN_INT0_IRQHandler(void){
 }
 
 // Timer interrupt, used to track press time for long press detection
-void MRT_IRQHandler(void){
-	Chip_MRT_IntClear(LPC_MRT_CH(0));
+void MRT0_IRQHandler(void){
 	if(pbState == READY){
 		if(Chip_GPIO_GetPinState(LPC_GPIO, 0, PWR_PB_SENSE)){
 			pbState = TRIGGERED;
 			PININT_EnableLevelInt(LPC_GPIO_PIN_INT, 1 << 0);
 			PININT_LowActive(LPC_GPIO_PIN_INT, 1 << 0);
-			Chip_MRT_SetEnabled(LPC_MRT_CH(0));
 			Chip_MRT_SetMode(LPC_MRT_CH(0), MRT_MODE_REPEAT);
-			Chip_MRT_SetInterval(LPC_MRT_CH(0), (100 * (Chip_Clock_GetSystemClockRate() / 1000)) | MRT_INTVAL_LOAD); //100ms
+			Chip_MRT_SetInterval(LPC_MRT_CH(0), (100 * (SystemCoreClock / 1000)) | MRT_INTVAL_LOAD); //100ms
 			pbTenths = 0;
 		}else{
 			PININT_EnableLevelInt(LPC_GPIO_PIN_INT, 1 << 0);
@@ -50,7 +47,7 @@ void MRT_IRQHandler(void){
 		if(pbTenths >= 10){
 			pbState = LONGPRESS;
 			pbLongPress = true;
-			Chip_MRT_SetDisabled(LPC_MRT_CH(0));
+			Chip_MRT_SetInterval(LPC_MRT_CH(0), MRT_INTVAL_LOAD);
 		}
 	}
 }
@@ -64,13 +61,8 @@ void pb_init(void){
 	pbShortPress = false;
 
 	// Set up timer interrupt
-	Chip_MRT_Init();
-	Chip_MRT_SetDisabled(LPC_MRT_CH(0));
 	Chip_MRT_IntClear(LPC_MRT_CH(0));
-
-	NVIC_ClearPendingIRQ(MRT_IRQn);
-	NVIC_EnableIRQ(MRT_IRQn);
-	NVIC_SetPriority(MRT_IRQn, 0x02); // Set higher than systick, but lower than sampling
+	Chip_MRT_SetEnabled(LPC_MRT_CH(0));
 
 	// Set up pin interrupt
 	Chip_PININT_Init(LPC_GPIO_PIN_INT);

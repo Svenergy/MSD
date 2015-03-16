@@ -24,4 +24,6 @@ char *getTimeStr(void);
 
 void getNonBlankLine(char* line, FIL* fil, int32_t skipCount);
 
+int32_t countToColon(char* line);
+
 #endif /* CONFIG_H_ */

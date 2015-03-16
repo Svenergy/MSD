@@ -27,7 +27,7 @@ void system_halt(void){
 		daq_stop();
 	} else if(system_state == STATE_MSC){
 		msc_stop();
-		f_mount(&fatfs,"",0); // mount file system
+		f_mount(fatfs,"",0); // mount file system
 	}
 
 	Board_LED_Color(LED_OFF);
@@ -86,5 +86,24 @@ float read_vBat(int32_t n){
 
 	// Convert raw value to volts
 	return (3.3*sum) / (4096 * n);
+}
+
+/* Interrupt handlers with multiple functions */
+void MRT_IRQHandler(void){
+	uint32_t int_pend;
+
+	/* Get and clear interrupt pending status for all timers */
+	int_pend = Chip_MRT_GetIntPending();
+	Chip_MRT_ClearIntPending(int_pend);
+
+	/* Channel 0, Used to track press time for long press detection */
+	if (int_pend & MRTn_INTFLAG(0)) {
+		MRT0_IRQHandler();
+	}
+
+	/* Channel 1, Used to track ADC sampling progress */
+	if (int_pend & MRTn_INTFLAG(1)) {
+		MRT1_IRQHandler();
+	}
 }
 

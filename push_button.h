@@ -9,6 +9,9 @@ typedef enum{
 	LONGPRESS
 } PB_STATE;
 
+// Push button MRT interrupt
+void MRT0_IRQHandler(void);
+
 // Initialize the push button
 void pb_init(void);
 

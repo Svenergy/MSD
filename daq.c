@@ -20,11 +20,15 @@ DAQ daq;
 void (*daq_loop)(void);
 
 // Time tracking
-static volatile uint32_t sampleCount; // Count of samples taken in the current recording
+static volatile uint32_t sampleCount; // Count of samples taken in the current recording, used for timing verification
 static uint32_t sampleStrfCount; // Count of samples string formatted in the current recording
 static volatile uint32_t dwt_lastTime; // Time of the last sample according to the DWT timer, used to measure sampling integral error and jitter
 static volatile uint64_t dwt_elapsedTime; // Total sampling elapsed time according to the DWT timer
 static uint32_t buttonTime; // Time that the record button was pressed, used for trigger delay
+
+static uint32_t rawValSum[MAX_CHAN]; // Raw sample values, summed over the number of over-samples
+static uint32_t MRTCount; // Count of runs of the MRT1 timer interrupt
+static uint32_t overSampleCount; // Count of over samples
 
 // Flag cleared when the data file is created, set on init
 static bool noFile;
@@ -73,99 +77,94 @@ void SCT0_IRQHandler(void){
 }
 
 // Sample timer
+// 407cc every time, 845cc when saving to buffer
 void RIT_IRQHandler(void){
-	/* Clear interrupt */
 	Chip_RIT_ClearIntStatus(LPC_RITIMER);
 
-	uint32_t i, j;
-	uint16_t rawVal[MAX_CHAN];
-
+	/* Check sample time against DWT timer, 97cc */
 	uint32_t dwt_currentTime = DWT_Get();
-
-	if(daq.sample_rate >= 1000){
-		// Set ADC config
-		uint16_t sampleCFG = (1 << ADC_CFG ) | // Overwrite config
-							 (6 << ADC_INCC) | // Unipolar, referenced to COM
-							 ((MAX_CHAN-1) << ADC_IN)   | // Sequence channels 0,1.. (MAX_CHAN-1)
-							 (1 << ADC_BW)   | // Full bandwidth
-							 (1 << ADC_REF)  | // Internal reference output 4.096v
-							 (3 << ADC_SEQ)  | // Channel sequencer enabled
-							 (1 << ADC_RB);    // Do not read back config
-
-		NVIC_DisableIRQ(SCT0_IRQn); // Prevent sampling interruptions
-		adc_read(sampleCFG);
-		adc_read(0); // Buffering read, next read returns sample from channel 0
-		// Read all channels, only store data for enabled channels
-		uint8_t ch = 0;
-		for(i=0;i<MAX_CHAN;i++){
-			if(daq.channel[i].enable){
-				rawVal[ch++] = adc_read(0);
-			} else {
-				adc_read(0);
-			}
-		}
-		NVIC_EnableIRQ(SCT0_IRQn);
-
-	} else { // Average a bunch of samples for each channel when recording at slow rates for better noise rejection
-		// Read all enabled channels
-		uint8_t ch = 0;
-		for(i=0;i<MAX_CHAN;i++){
-			if(daq.channel[i].enable){
-				// Set ADC config
-				uint16_t sampleCFG = (1 << ADC_CFG ) | // Overwrite config
-									 (6 << ADC_INCC) | // Unipolar, referenced to COM
-									 (i << ADC_IN)   | // Read channel i
-									 (1 << ADC_BW)   | // Full bandwidth
-									 (1 << ADC_REF)  | // Internal reference output 4.096v
-									 (0 << ADC_SEQ)  | // Channel sequencer disabled
-									 (1 << ADC_RB);    // Do not read back config
-				uint16_t count = 10000/daq.sample_rate;
-				uint32_t sum = 0;
-
-				adcUsed = false;
-				adc_read(sampleCFG);
-				adc_read(0); // Buffering read, next read returns sample from channel 0
-
-				for(j=0;j<count;j++){
-					uint16_t raw;
-					if(adcUsed){
-						adcUsed = false;
-						adc_read(sampleCFG);
-						adc_read(0);
-					}
-					raw = adc_read(0);
-					while(adcUsed){
-						adcUsed = false;
-						adc_read(sampleCFG);
-						adc_read(0);
-						raw = adc_read(0);
-					}
-					sum += raw;
-				}
-				rawVal[ch++] = sum / count;
-			}
-		}
-	}
-
-	// Read current time with microsecond precision, increment sample counter
-	uint64_t us = ((uint64_t)++sampleCount * 1000000 ) / daq.sample_rate;
-
-	// Compare to DWT timer
 	dwt_elapsedTime += dwt_currentTime - dwt_lastTime;
 	dwt_lastTime = dwt_currentTime;
-	int32_t dT = us - dwt_elapsedTime/72;
+
+	// Read current target sample time in clock cycles, increment sample counter
+	uint64_t cc = (uint64_t)++sampleCount * (72000000 / MAX_CONVERSION_RATE);
+
+	// Compare to DWT time
+	int32_t dT = cc - dwt_elapsedTime;
 
 	// Error if sample timing is off by > 50us
 	if(dT > 3600 || dT < -3600){
 		error(ERROR_SAMPLE_TIME);
 	}
 
-	RingBuffer_writeData(rawBuff, rawVal, daq.channel_count*2); // 16 bit samples = 2bytes/sample
+	/* Save data to the ring buffer for enabled channels after all over-samples have been collected */
+	if (overSampleCount == daq.oversamples){
+		uint8_t i = 0;
+		uint8_t ch = 0;
+		uint16_t rawVal[MAX_CHAN];
+		for(i=0;i<MAX_CHAN;i++){
+			if(daq.channel[i].enable){
+				rawVal[ch++] = (uint16_t) (rawValSum[i] / daq.oversamples);
+			}
+		}
+		RingBuffer_writeData(rawBuff, &rawVal, 2*daq.channel_count); // 16 bit samples = 2bytes/sample
+		overSampleCount = 0;
+	}
+
+	/* Clear sample sums */
+	if (overSampleCount == 0){
+		uint8_t i = 0;
+		for(i=0;i<MAX_CHAN;i++){
+			rawValSum[i] = 0;
+		}
+	}
+
+	/* Start the first conversion */
+
+	// Set ADC config
+	uint16_t sampleCFG = (1 << ADC_CFG ) | // Overwrite config
+						 (6 << ADC_INCC) | // Unipolar, referenced to COM
+						 ((MAX_CHAN-1) << ADC_IN)   | // Sequence channels 0,1.. (MAX_CHAN-1)
+						 (1 << ADC_BW)   | // Full bandwidth
+						 (1 << ADC_REF)  | // Internal reference output 4.096v
+						 (3 << ADC_SEQ)  | // Channel sequencer enabled
+						 (1 << ADC_RB);    // Do not read back config
+
+	// Disable SCT interrupt
+	NVIC_DisableIRQ(SCT0_IRQn);
+
+	// First transfer, set the config
+	adc_SPI_Transfer(sampleCFG); // 109cc
+
+	// Reset MRT count and set MRT1 timer for 4us repeating
+	MRTCount = 0;
+	Chip_MRT_SetInterval(LPC_MRT_CH(1), (4 * (SystemCoreClock / 1000000)) | MRT_INTVAL_LOAD); // 4us
+
+	// Increment over samples
+	overSampleCount++;
+}
+
+// ADC sample timing interrupt, called from main MRT interrupt in system
+// 132cc for dummy transfer, 166cc for others
+void MRT1_IRQHandler(void){
+	if(MRTCount == 0){
+		// Dummy transfer
+		adc_SPI_Transfer(0);
+	} else if(MRTCount < MAX_CHAN+1){
+		// Collect samples from all MAX_CHAN channels
+		rawValSum[MRTCount - 1] += adc_SPI_Transfer(0);
+		if(MRTCount == MAX_CHAN){
+			// Stop MRT1 timer and enable SCT timer
+			Chip_MRT_SetInterval(LPC_MRT_CH(1), MRT_INTVAL_LOAD);
+			Chip_MRT_IntClear(LPC_MRT_CH(1));
+			NVIC_EnableIRQ(SCT0_IRQn);
+		}
+	}
+	MRTCount++;
 }
 
 // Set up daq
-void daq_init(void)
-{
+void daq_init(void){
 	log_string("Acquisition Ready");
 	Board_LED_Color(LED_PURPLE);
 
@@ -196,9 +195,10 @@ void daq_init(void)
 	// Set flag to indicate no data file exists
 	noFile = true;
 
-	// 0 the sample count
+	// 0 the sample counts
 	sampleCount = 0;
 	sampleStrfCount = 0;
+	overSampleCount = 0;
 
 	// Save button time for trigger delay
 	buttonTime = Chip_RTC_GetCount(LPC_RTC);
@@ -227,7 +227,7 @@ void daq_record(){
 
 	/* Set timer compare value and periodic mode */
 	// Do not use Chip_RIT_SetTimerIntervalHz, for timing critical operations, it has an off by 1 error on the period in clock cycles
-	uint64_t cmp_value = Chip_Clock_GetSystemClockRate() / daq.sample_rate - 1;
+	uint64_t cmp_value = SystemCoreClock / MAX_CONVERSION_RATE - 1;
 	Chip_RIT_SetCompareValue(LPC_RITIMER, cmp_value);
 	Chip_RIT_EnableCompClear(LPC_RITIMER);
 
@@ -236,6 +236,11 @@ void daq_record(){
 
 	NVIC_EnableIRQ(RITIMER_IRQn);
 	NVIC_SetPriority(RITIMER_IRQn, 0x01); // Set to second highest priority to ensure sample timing accuracy
+
+	// Set up MRT timer interrupt
+	Chip_MRT_IntClear(LPC_MRT_CH(1));
+	Chip_MRT_SetEnabled(LPC_MRT_CH(1));
+	Chip_MRT_SetMode(LPC_MRT_CH(1), MRT_MODE_REPEAT);
 
 	// Set loop to write data from buffer to file
 	daq_loop = daq_writeData;
@@ -415,6 +420,11 @@ void daq_stop(void){
 		Chip_RIT_DeInit(LPC_RITIMER);
 		NVIC_DisableIRQ(RITIMER_IRQn);
 
+		// Stop MRT1 timer
+		Chip_MRT_SetInterval(LPC_MRT_CH(1), MRT_INTVAL_LOAD);
+		Chip_MRT_IntClear(LPC_MRT_CH(1));
+		Chip_MRT_SetDisabled(LPC_MRT_CH(1));
+
 		// Turn off output voltage
 		daq_voutDisable();
 
@@ -571,7 +581,7 @@ void daq_configCheck(void){
 	}
 
 	// Force sample rate to be in the set [1,2,5]*10^k
-	daq.sample_rate = clamp(daq.sample_rate, 1, 10000);
+	daq.sample_rate = clamp(daq.sample_rate, 1, MAX_SAMPLE_RATE);
 	uint32_t mag = 1;
 	while(mag < daq.sample_rate){
 		if(daq.sample_rate <= mag * 2){
@@ -583,6 +593,9 @@ void daq_configCheck(void){
 		}
 		mag *= 10;
 	}
+
+	// Set the number of oversamples
+	daq.oversamples = MAX_CONVERSION_RATE / daq.sample_rate;
 
 	// Determine time resolution required
 	daq.time_res = 0;

@@ -36,15 +36,15 @@ void config_fromFile(void){
 		memcpy(daq.user_comment, line, 101);
 		getNonBlankLine(line,&config, 1);
 		/* Line is now Output Voltage */
-		sscanf(line, "%f", fVal);
+		sscanf(line, " %f", fVal);
 		daq.mv_out = (int32_t)(fVal * 1000);
 		getNonBlankLine(line,&config, 1);
 		/* Line is now Sample Rate */
-		sscanf(line, "%d", iVal);
+		sscanf(line, " %d", iVal);
 		daq.sample_rate = (int32_t)iVal;
 		getNonBlankLine(line,&config, 1);
 		/* Line is now trigger delay */
-		sscanf(line, "%d", iVal);
+		sscanf(line, " %d", iVal);
 		daq.trigger_delay = iVal;
 		getNonBlankLine(line,&config, 1);
 		/* Line is now data mode */
@@ -62,8 +62,7 @@ void config_fromFile(void){
 
 			/* Channel Config */
 			/* CH Enabled */
-			strtok(line,":");
-			sscanf(line, "%c", cVal);
+			sscanf(line + countToColon(line), " %c", cVal);
 			if (cVal == 'Y' || cVal == 'y') {
 				daq.channel[i].enable = true;
 			} else if (cVal == 'N' || cVal == 'n') {
@@ -73,8 +72,7 @@ void config_fromFile(void){
 			}
 			getNonBlankLine(line,&config, 0);
 			/* CH Range */
-			strtok(line,":");
-			sscanf(line, "%c", cVal);
+			sscanf(line + countToColon(line), " %c", cVal);
 			if (cVal == '5'){
 				daq.channel[i].range = V5;
 			} else if (cVal == '2') {
@@ -89,14 +87,12 @@ void config_fromFile(void){
 			getNonBlankLine(line,&config, 0);
 
 			/* CH Units/Volt */
-			strtok(line,":");
-			sscanf(line, "%f", fVal);
+			sscanf(line + countToColon(line), " %f", fVal);
 			daq.channel[i].units_per_volt = floatToDecFloat(fVal);
 			getNonBlankLine(line,&config, 0);
 
 			/* CH Zero Offset */
-			strtok(line,":");
-			sscanf(line, "%f", fVal);
+			sscanf(line + countToColon(line), " %f", fVal);
 			daq.channel[i].offset_uV = floatToFix(fVal);
 
 			/* Read lines to get to update calibration */
@@ -112,26 +108,22 @@ void config_fromFile(void){
 			getNonBlankLine(line,&config, 0);
 
 			/* 5V Zero Offset */
-			strtok(line,":");
-			sscanf(line, "%f", fVal);
+			sscanf(line + countToColon(line), " %f", fVal);
 			daq.channel[i].v5_zero_offset = floatToFix(fVal);
 			getNonBlankLine(line,&config, 0);
 
 			/* 5V LSB/Volt */
-			strtok(line,":");
-			sscanf(line, "%f", fVal);
+			sscanf(line + countToColon(line), " %f", fVal);
 			daq.channel[i].v5_uV_per_LSB = floatToFix(fVal);
 			getNonBlankLine(line,&config, 0);
 
 			/* 24V Zero Offset */
-			strtok(line,":");
-			sscanf(line, "%f", fVal);
+			sscanf(line + countToColon(line), " %f", fVal);
 			daq.channel[i].v24_zero_offset = floatToFix(fVal);
 			getNonBlankLine(line,&config, 0);
 
 			/* 24V LSB/Volt */
-			strtok(line,":");
-			sscanf(line, "%f", fVal);
+			sscanf(line + countToColon(line), " %f", fVal);
 			daq.channel[i].v24_uV_per_LSB = floatToFix(fVal);
 		}
 	}
@@ -183,7 +175,7 @@ void getNonBlankLine(char* line, FIL* fil, int32_t skipCount){
 
 int32_t countToColon(char* line) {
 	int32_t count = 0;
-	while ((line[count] != ":") && (line[count] != '\0')) {
+	while ((line[count] != ':') && (line[count] != '\0')) {
 		count++;
 	}
 	return count;

@@ -6,6 +6,7 @@
 #include "msc_main.h"
 #include "daq.h"
 #include "log.h"
+#include "push_button.h"
 
 typedef enum {
 	STATE_IDLE,

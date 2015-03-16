@@ -95,7 +95,7 @@ void SysTick_Handler(void){
 				msc_state = MSC_DISABLED;
 			}
 			msc_stop();
-			f_mount(&fatfs,"",0); // mount file system
+			f_mount(fatfs,"",0); // mount file system
 			Board_LED_Color(LED_GREEN);
 			system_state = STATE_IDLE;
 			enterIdleTime = Chip_RTC_GetCount(LPC_RTC);
@@ -181,7 +181,7 @@ int main(void) {
 	DWT_Init();
 
 	// Set up the FatFS Object
-	f_mount(&fatfs,"",0);
+	f_mount(fatfs,"",0);
 
 	// Initialize SD card
 	Board_LED_Color(LED_CYAN);
@@ -190,6 +190,8 @@ int main(void) {
 	}
 	sd_state = SD_READY;
 	Board_LED_Color(LED_GREEN);
+
+	// TODO: stuff to read/write config
 
 	// Allow MSC mode on startup
 	msc_state = MSC_ENABLED;
@@ -202,6 +204,12 @@ int main(void) {
 
 	// Initialize ring buffer used to buffer raw data samples
 	rawBuff = RingBuffer_initWithBuffer(RAW_BUFF_SIZE, RAM1_BASE);
+
+	// Set up MRT used by pb and daq
+	Chip_MRT_Init();
+	NVIC_ClearPendingIRQ(MRT_IRQn);
+	NVIC_EnableIRQ(MRT_IRQn);
+	NVIC_SetPriority(MRT_IRQn, 0x02); // Set higher than systick, but lower than sampling
 
 	// Initialize push button
 	pb_init();

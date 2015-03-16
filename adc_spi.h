@@ -27,6 +27,8 @@ enum {
 
 void adc_spi_setup(void);
 
-uint16_t adc_read(uint16_t config);
+uint16_t adc_SPI_Transfer(uint16_t data); // Perform SPI transfer
+
+uint16_t adc_read(uint16_t config); // Just read the data, ensuring 4us since last conversion
 
 #endif /* __ADC_SPI_ */
