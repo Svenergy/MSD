@@ -24,13 +24,6 @@ void adc_spi_setup(void){
 	Chip_SPI_Enable(LPC_SPI1);
 }
 
-uint16_t adc_SPI_Transfer(uint16_t data) {
-  while(~LPC_SPI1->STAT & SPI_STAT_TXRDY){};
-  LPC_SPI1->TXDATCTL = SPI_TXDATCTL_LEN(16-1) | SPI_TXDATCTL_EOT | SPI_TXCTL_ASSERT_SSEL0 | data;
-  while(~LPC_SPI1->STAT & SPI_STAT_RXRDY){};
-  return LPC_SPI1->RXDAT;
-}
-
 uint16_t adc_read(uint16_t config){
 	// Ensure >4us between conversions
 	uint32_t now;

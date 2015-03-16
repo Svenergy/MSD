@@ -27,7 +27,18 @@ enum {
 
 void adc_spi_setup(void);
 
-uint16_t adc_SPI_Transfer(uint16_t data); // Perform SPI transfer
+// Perform SPI transfer of 0x0000, ignore received data
+#define adc_SPI_dummy_Transfer() \
+	while(~LPC_SPI1->STAT & SPI_STAT_TXRDY){}; \
+	LPC_SPI1->TXDATCTL = SPI_TXDATCTL_LEN(16-1) | SPI_TXDATCTL_EOT | SPI_TXDATCTL_RXIGNORE | SPI_TXCTL_ASSERT_SSEL0;
+
+// Perform SPI transfer
+#define adc_SPI_Transfer(data) ({ \
+	while(~LPC_SPI1->STAT & SPI_STAT_TXRDY){}; \
+	LPC_SPI1->TXDATCTL = SPI_TXDATCTL_LEN(16-1) | SPI_TXDATCTL_EOT | SPI_TXCTL_ASSERT_SSEL0 | data; \
+	while(~LPC_SPI1->STAT & SPI_STAT_RXRDY){}; \
+	LPC_SPI1->RXDAT; \
+})
 
 uint16_t adc_read(uint16_t config); // Just read the data, ensuring 4us since last conversion
 

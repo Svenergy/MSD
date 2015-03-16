@@ -37,9 +37,8 @@ static bool noFile;
 static volatile bool adcUsed;
 
 // Vout PWM
-// Takes 1190cc (16.5us). At 7200Hz, takes 11.9% of cpu time
+// Takes 968cc (13.4us). At 7200Hz, takes 9.7% of cpu time
 void SCT0_IRQHandler(void){
-	/* Clear interrupt */
 	Chip_SCT_ClearEventFlag(LPC_SCT0, SCT_EVT_0);
 
 	adcUsed = true;
@@ -77,7 +76,8 @@ void SCT0_IRQHandler(void){
 }
 
 // Sample timer
-// 407cc every time, 845cc when saving to buffer
+// 377cc every time, 823cc when saving to buffer
+// ~925cc total cpu time per 3-channel sample not writing to ring buffer, 1371cc when writing to buffer
 void RIT_IRQHandler(void){
 	Chip_RIT_ClearIntStatus(LPC_RITIMER);
 
@@ -134,7 +134,7 @@ void RIT_IRQHandler(void){
 	NVIC_DisableIRQ(SCT0_IRQn);
 
 	// First transfer, set the config
-	adc_SPI_Transfer(sampleCFG); // 109cc
+	adc_SPI_Transfer(sampleCFG); // 83cc
 
 	// Reset MRT count and set MRT1 timer for 4us repeating
 	MRTCount = 0;
@@ -145,12 +145,12 @@ void RIT_IRQHandler(void){
 }
 
 // ADC sample timing interrupt, called from main MRT interrupt in system
-// 132cc for dummy transfer, 166cc for others
+// 38cc for dummy transfer, 130cc for intermediate samples, ~250cc for final sample
 void MRT1_IRQHandler(void){
 	if(MRTCount == 0){
 		// Dummy transfer
-		adc_SPI_Transfer(0);
-	} else if(MRTCount < MAX_CHAN+1){
+		adc_SPI_dummy_Transfer();
+	} else {
 		// Collect samples from all MAX_CHAN channels
 		rawValSum[MRTCount - 1] += adc_SPI_Transfer(0);
 		if(MRTCount == MAX_CHAN){
