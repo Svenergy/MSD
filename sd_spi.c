@@ -326,7 +326,7 @@ SD_ERROR sd_reset(SD_CardInfo *cardinfo){
 	//Hard reset
 	Chip_GPIO_SetPinDIROutput(LPC_GPIO, 0, SD_POWER);
 	Chip_GPIO_SetPinState(LPC_GPIO, 0, SD_POWER, 1);
-	DWT_Delay(100000); //200ms delay
+	DWT_Delay(100000); //100ms delay
 	Chip_GPIO_SetPinState(LPC_GPIO, 0, SD_POWER, 0);
 	// Initialize SD card
 	return init_sd_spi(cardinfo);
@@ -446,7 +446,7 @@ uint8_t sd_read_multiple_blocks (uint32_t blockaddr, uint32_t blockcount, uint8_
   return 0;
 }
 
-uint8_t sd_write_block (uint32_t blockaddr,uint8_t *data) {
+uint8_t sd_write_block (uint32_t blockaddr, const uint8_t *data) {
   uint32_t i;
   uint8_t tmp;
 
@@ -493,7 +493,7 @@ uint8_t sd_write_block (uint32_t blockaddr,uint8_t *data) {
 
 //TODO: Fix this function
 // 		Currently error in data response token after writing the first block
-uint8_t sd_write_multiple_blocks (uint32_t blockaddr, uint32_t blockcount, uint8_t *data) {
+uint8_t sd_write_multiple_blocks (uint32_t blockaddr, uint32_t blockcount, const uint8_t *data) {
   uint32_t i,bn;
   uint8_t tmp;
 

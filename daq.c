@@ -168,9 +168,6 @@ void daq_init(void){
 	log_string("Acquisition Ready");
 	Board_LED_Color(LED_PURPLE);
 
-	// Read config
-	daq_configDefault();
-
 	// Limit config values to valid values
 	daq_configCheck();
 
@@ -537,17 +534,17 @@ void daq_readableFormat(uint16_t *rawData, char *sampleStr){
 	for(i=0;i<MAX_CHAN;i++){
 		if(daq.channel[i].enable){ // Only scale enabled channels
 			// Calculate value scaled to uV
-			intToFix(scaledVal+ch, rawData[ch]);
+			intToFix((fix64_t*)scaledVal+ch, rawData[ch]);
 			if(daq.channel[i].range == V5){
-				fix_sub(scaledVal+ch, &daq.channel[i].v5_zero_offset);
-				fix_mult(scaledVal+ch, &daq.channel[i].v5_uV_per_LSB);
+				fix_sub((fix64_t*)scaledVal+ch, &daq.channel[i].v5_zero_offset);
+				fix_mult((fix64_t*)scaledVal+ch, &daq.channel[i].v5_uV_per_LSB);
 			} else {
-				fix_sub(scaledVal+ch, &daq.channel[i].v24_zero_offset);
-				fix_mult(scaledVal+ch, &daq.channel[i].v24_uV_per_LSB);
+				fix_sub((fix64_t*)scaledVal+ch, &daq.channel[i].v24_zero_offset);
+				fix_mult((fix64_t*)scaledVal+ch, &daq.channel[i].v24_uV_per_LSB);
 			}
 			// Scale uV to [units] * 1000000, ignoring user scale exponent
-			fix_sub(scaledVal+ch, &daq.channel[i].offset_uV);
-			fix_mult(scaledVal+ch, &daq.channel[i].units_per_volt);
+			fix_sub((fix64_t*)scaledVal+ch, &daq.channel[i].offset_uV);
+			fix_mult((fix64_t*)scaledVal+ch, (fix64_t*)&daq.channel[i].units_per_volt);
 			scaledVal[ch].exp = daq.channel[i].units_per_volt.exp - 6; // account for uV to V conversion
 			ch++;
 		}
@@ -607,40 +604,4 @@ void daq_configCheck(void){
 
 	// Limit output voltage to the range 5-24v
 	daq.mv_out = clamp(daq.mv_out, 5000, 24000);
-}
-
-// Set channel configuration defaults
-void daq_configDefault(void){
-	int i;
-
-	// Channel_Config defaults
-	for(i=0;i<MAX_CHAN;i++){
-		daq.channel[i].enable = true;				// enable channel
-		daq.channel[i].range = V24;					// 0-5v input range
-
-		daq.channel[i].units_per_volt = floatToDecFloat(1.0); // sensitivity in units/volt
-		daq.channel[i].offset_uV = floatToFix(0); 			// zero offset in volts
-
-		strcpy(daq.channel[i].unit_name, "V");	// name of channel units
-
-		daq.channel[i].v5_zero_offset = floatToFix(0.0);		// theoretical value of raw 16-bit sample for 0 input voltage
-		daq.channel[i].v5_uV_per_LSB = floatToFix(78.04726);	// theoretical sensitivity of reading in uV / LSB = 1000000 * (4.096 * ( (402+100) / 402 )) / (1 << 16)
-		daq.channel[i].v24_zero_offset = floatToFix(32511.13);	// theoretical value of raw 16-bit sample for 0 input voltage = (1 << 16) * ( (1/(1/100+1/402+1/21)) / (1/(1/100+1/402+1/21) + 16.9) )
-		daq.channel[i].v24_uV_per_LSB = floatToFix(745.48879);	// theoretical sensitivity of reading in uV / LSB = 1000000 / (((1 << 16)/4.096) * (1/(1/100+1/402+1/21+1/16.9)) / 100)
-	}
-
-	// Sample rate in Hz
-	daq.sample_rate = 10000;
-
-	// Trigger Delay in seconds
-	daq.trigger_delay = 0;
-
-	// Data mode can be READABLE, HEX, or BINARY
-	daq.data_type = BINARY;
-
-	// Vout = 5v
-	daq.mv_out = 5000;
-
-	// User comment string
-	strcpy(daq.user_comment, "User header comment");
 }

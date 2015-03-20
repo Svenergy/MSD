@@ -48,6 +48,7 @@ int32_t usToStr(char *str, int64_t us, int8_t precision){
 		}
 		strSize += precision;
 	}
+	str[strSize] = '\0';
 	return strSize;
 }
 
@@ -124,6 +125,7 @@ int32_t decFloatToStr(char *str, dec_float_t *df, int8_t precision){
 	str[strSize+1] = '0' + (char)(exp%10);
 	exp /= 10;
 	str[strSize] = '0' + (char)(exp%10);
+	str[strSize+2] = '\0';
 	return strSize+2;
 }
 
@@ -198,6 +200,7 @@ int32_t fixToStr(char *str, fix64_t *fx, int8_t precision, int32_t exp){
 	str[strSize+1] = '0' + (char)(exp%10);
 	exp /= 10;
 	str[strSize] = '0' + (char)(exp%10);
+	str[strSize+2] = '\0';
 	return strSize+2;
 }
 

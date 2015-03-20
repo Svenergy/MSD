@@ -92,6 +92,12 @@ DRESULT disk_write (
 	UINT count			/* Number of sectors to write */
 )
 {
+	// Error if writing to a block above 4gb, minus room to grow the log file
+	if( sector + count >= 0x007FFFF0 ){
+		error(ERROR_DISK_FULL);
+		return RES_ERROR;
+	}
+
 #ifdef SD_WRITE_DEBUG
 	uint32_t start_time = DWT_Get();
 	uint32_t bc = 0;
@@ -120,7 +126,6 @@ DRESULT disk_write (
 				buff += _MAX_SS;
 			} else {
 				return RES_ERROR;
-
 			}
 		}
 #ifdef SD_WRITE_DEBUG

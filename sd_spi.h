@@ -203,8 +203,8 @@ SD_ERROR init_sd_spi(SD_CardInfo *cardinfo);
 SD_ERROR sd_reset(SD_CardInfo *cardinfo);
 uint8_t sd_read_block(uint32_t blockaddr,uint8_t *data);
 uint8_t sd_read_multiple_blocks(uint32_t blockaddr, uint32_t blockcount, uint8_t *data);
-uint8_t sd_write_block(uint32_t blockaddr,uint8_t *data);
-uint8_t sd_write_multiple_blocks(uint32_t blockaddr, uint32_t blockcount, uint8_t *data);
+uint8_t sd_write_block(uint32_t blockaddr, const uint8_t *data);
+uint8_t sd_write_multiple_blocks(uint32_t blockaddr, uint32_t blockcount, const uint8_t *data);
 SD_ERROR sd_read_cid(SD_CID *sd_cid,CARD_TYPE ct);
 SD_ERROR sd_read_csd(SD_CSD *sd_csd,CARD_TYPE ct);
 

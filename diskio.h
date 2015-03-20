@@ -13,7 +13,8 @@ extern "C" {
 #define _USE_IOCTL	1	/* 1: Enable disk_ioctl fucntion */
 
 #include "integer.h"
-
+#include "sys_error.h"
+#include "system.h"
 
 /* Status of Disk Functions */
 typedef BYTE	DSTATUS;
@@ -30,13 +31,6 @@ typedef enum {
 
 /*---------------------------------------*/
 /* Prototypes for disk control functions */
-
-typedef enum {
-	SD_OUT,
-	SD_READY,
-} SD_STATE;
-
-extern SD_STATE sd_state;
 
 DSTATUS disk_initialize (BYTE pdrv);
 DSTATUS disk_status (BYTE pdrv);

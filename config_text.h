@@ -1,14 +1,14 @@
 
-const char *fileStrings[26] = {
+const char * const fileStrings[26] = {
 		"FW version: v1.0",									// 0
 		"**** UPDATE DATE+TIME [Y/N] ****",					// 1
 		"    DATE/TIME [YYYY-MM-DD HH:MM:SS]",				// 2
 		"**** UPDATE CONFIG [Y/N] ****",					// 3
 		"    USER HEADER [up to 100 characters]",			// 4
-		"OUTPUT VOLTAGE [floating point]",					// 5
+		"    OUTPUT VOLTAGE [floating point]",				// 5
 		"    SAMPLE RATE [HZ, 1 - 10000]",					// 6
-		"TRIGGER DELAY [SEC, 0 - 100000]",					// 7
-		"DATA MODE [[R]eadable / [H]ex / [B]inary]",		// 8
+		"    TRIGGER DELAY [SEC, 0 - 100000]",				// 7
+		"    DATA MODE [[R]eadable / [H]ex / [B]inary]",	// 8
 		"    CHANNEL 1",									// 9
 		"    CHANNEL 2",									// 10
 		"    CHANNEL 3",									// 11

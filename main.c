@@ -189,10 +189,11 @@ int main(void) {
 		error(ERROR_SD_INIT);
 	}
 	sd_state = SD_READY;
-	Board_LED_Color(LED_GREEN);
 
 	// Setup config
+	Board_LED_Color(LED_CYAN);
 	configStart();
+	Board_LED_Color(LED_GREEN);
 
 	// Allow MSC mode on startup
 	msc_state = MSC_ENABLED;
