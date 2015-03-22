@@ -168,13 +168,15 @@ int main(void) {
 
 	Board_Init();
 
-	//setTime("2015-03-08 14:30:00");
-
 #ifdef DEBUG
 	// Set up UART for debug
 	init_uart(115200);
 	putLineUART("\n");
 #endif
+
+	// Enable EEPROM clock and reset EEPROM controller
+	Chip_Clock_EnablePeriphClock(SYSCTL_CLOCK_EEPROM);
+	Chip_SYSCTL_PeriphReset(RESET_EEPROM);
 
 	// Set up clocking for SD lib
 	SystemCoreClockUpdate();

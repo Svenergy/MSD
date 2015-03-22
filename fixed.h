@@ -15,7 +15,7 @@
 
 #define clamp(amt,low,high) ((amt)<(low)?(low):((amt)>(high)?(high):(amt)))
 
-// Signed, 32-bit fractional paer, 32-bit integer part
+// Signed, 32-bit fractional part, 32-bit integer part
 typedef struct fix64_t {
 	uint32_t frac;
 	int32_t  _int;
