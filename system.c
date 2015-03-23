@@ -27,7 +27,6 @@ void system_halt(void){
 		daq_stop();
 	} else if(system_state == STATE_MSC){
 		msc_stop();
-		f_mount(fatfs,"",0); // mount file system
 	}
 
 	Board_LED_Color(LED_OFF);

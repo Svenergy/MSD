@@ -28,6 +28,9 @@ void error(ERROR_CODE errorCode){
 	// Blue LED on in error
 	Board_LED_Color(LED_BLUE);
 
+	// Mount file system
+	f_mount(fatfs,"",0);
+
 	// Reset SD card
 	sd_reset(&cardinfo);
 
