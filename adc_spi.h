@@ -40,6 +40,4 @@ void adc_spi_setup(void);
 	LPC_SPI1->RXDAT; \
 })
 
-uint16_t adc_read(uint16_t config); // Just read the data, ensuring 4us since last conversion
-
 #endif /* __ADC_SPI_ */

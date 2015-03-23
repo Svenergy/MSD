@@ -1,7 +1,5 @@
 #include "adc_spi.h"
 
-static uint32_t last_conv_time = 0;
-
 void adc_spi_setup(void){
 	SPI_CFG_T spiCfg;
 	SPI_DELAY_CONFIG_T spiDelayCfg;
@@ -22,17 +20,4 @@ void adc_spi_setup(void){
 	Chip_SPI_DelayConfig(LPC_SPI1, &spiDelayCfg);
 
 	Chip_SPI_Enable(LPC_SPI1);
-}
-
-uint16_t adc_read(uint16_t config){
-	// Ensure >4us between conversions
-	uint32_t now;
-
-	do{
-		now = DWT_Get();
-	}while(now - last_conv_time < 288); // 4us is 288 cycles at 72Mhz
-	last_conv_time = now;
-
-	// SPI transfer and return data
-	return adc_SPI_Transfer(config);
 }

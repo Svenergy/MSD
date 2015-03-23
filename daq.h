@@ -15,7 +15,13 @@
 #include "fixed.h"
 #include "config.h"
 
-#define MAX_CONVERSION_RATE 20000 // Maximum rate of conversion from ADC, limits oversampling
+#define SYS_CLOCK_RATE 72000000 // System clock rate in Hz
+
+#define ADC_US 4 // microseconds between ADC samples
+
+#define MAX_CONVERSION_RATE 20000 // Maximum rate of conversion from ADC, limits sub sampling
+
+#define VOUT_PWM_RATE 10000 // Vout pwm rate in Hz, also rate of updates to output value
 
 #define MAX_SAMPLE_RATE 10000 // Maximum rate samples can be recorded to the sd card
 
@@ -67,10 +73,10 @@ typedef struct DAQ {
 	int32_t mv_out;			// Output voltage in mv, valid_range = <5000..24000>
 	int32_t sample_rate;	// Sample rate in Hz, valid range = <1..10000>
 	int8_t time_res;		// Sample time resolution in n digits where time is s.n
-	int32_t oversamples;	// Number of oversamples per data sample, normally 20k/sample_rate
+	int32_t subsamples;		// Number of sub samples per data sample, normally 20k/sample_rate
 	int32_t trigger_delay;	// Delay in seconds before starting the data collection
 	DATA_T data_type;		// data mode, can be READABLE or COMPACT
-	char user_comment[101];		// User comment to appear at the top of each data file
+	char user_comment[101];	// User comment to appear at the top of each data file
 } DAQ;
 
 extern uint8_t rsel_pins[3];
@@ -89,6 +95,9 @@ extern void (*daq_loop)(void);
 
 // ADC sample timing interrupt, called from main MRT interrupt in system
 void MRT1_IRQHandler(void);
+
+// Update vout PWM value
+void daq_updateVout(void);
 
 // Set up daq
 void daq_init(void);

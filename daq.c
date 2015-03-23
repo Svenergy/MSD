@@ -28,48 +28,39 @@ static uint32_t buttonTime; // Time that the record button was pressed, used for
 
 static uint32_t rawValSum[MAX_CHAN]; // Raw sample values, summed over the number of over-samples
 static uint32_t MRTCount; // Count of runs of the MRT1 timer interrupt
-static uint32_t overSampleCount; // Count of over samples
+static uint32_t subSampleCount; // Count of over samples
 
 // Flag cleared when the data file is created, set on init
 static bool noFile;
 
-// Flag set by SCT0_IRQHandler, accessed by RIT_IRQHandler
-static volatile bool adcUsed;
+// Vout raw value read from ADC
+static volatile uint16_t rawVout;
+
+// Flag set when data recording starts
+static volatile bool recordData;
+
 
 // Vout PWM
-// Takes 968cc (13.4us). At 7200Hz, takes 9.7% of cpu time
-void SCT0_IRQHandler(void){
-	Chip_SCT_ClearEventFlag(LPC_SCT0, SCT_EVT_0);
-
-	adcUsed = true;
+// Takes xxxcc (xx.xus). At 10000Hz, takes x.x% of cpu time
+void daq_updateVout(void){
     static int32_t intError;
     int32_t propError, pwmOut;
 
-    uint16_t voutCFG = 	(1 << ADC_CFG ) | // Overwrite config
-    					(6 << ADC_INCC) | // Unipolar, referenced to COM
-						(3 << ADC_IN) 	| // Channel IN3
-						(1 << ADC_BW) 	| // Full bandwidth
-						(1 << ADC_REF) 	| // Internal reference output 4.096v
-						(0 << ADC_SEQ) 	| // Channel sequencer disabled
-						(1 << ADC_RB);	  // Do not read back config
-    adc_read(voutCFG);
-    adc_read(0);
-
     // Theoretical mv / LSB = 1000 * ((100+20)/20) * 4.096 / (1 << 16) = 0.375
-    propError =  daq.mv_out - (3 * adc_read(0)) / 8; // Units are mv
+    propError =  daq.mv_out - (3 * rawVout) / 8; // Units are mv
 
-    intError += propError; // Units are mv * ms * 7.2, or giving a rate of 7.2e6/(v*s)
+    intError += propError; // Units are mv * ms * 10, or giving a rate of 10e6/(v*s)
 
     // Integral Error Saturation
-    intError = clamp(intError, -72000, 72000); // 7.2E5 means saturation at 10[mv*s]
+    intError = clamp(intError, -100000, 100000); // 10E5 means saturation at 10[mv*s]
 
     // Proportional Error Saturation, low to reduce overshoot and decrease integral settling time for large steps
     propError = clamp(propError, -350, 350); // Saturation at +/- 1v
 
     // Calculate PWM output value out of 10000
-    //Theoretical Duty = mv_out * 10 / ((3.3*39 / (39+51.7)) * (3.48E6/182E3 + 1)), = 0.350253
-    pwmOut = (daq.mv_out * 35025) / 100000 + intError / 200 + 2 * propError;
-    pwmOut = clamp(pwmOut, 0, 9999);
+    // Theoretical Duty = mv_out * 10 / ((3.3*39 / (39+51.7)) * (3.48E6/182E3 + 1)), = 0.350253
+    pwmOut = (daq.mv_out * 35025) / 100000 + intError / 300 + 2 * propError;
+    pwmOut = clamp(pwmOut, 0, SYS_CLOCK_RATE/VOUT_PWM_RATE - 1);
 
     // Set PWM output
     Chip_SCTPWM_SetDutyCycle(LPC_SCT0, 1, pwmOut);
@@ -87,77 +78,66 @@ void RIT_IRQHandler(void){
 	dwt_lastTime = dwt_currentTime;
 
 	// Read current target sample time in clock cycles, increment sample counter
-	uint64_t cc = (uint64_t)++sampleCount * (72000000 / MAX_CONVERSION_RATE);
+	uint64_t cc = (uint64_t)++sampleCount * (SYS_CLOCK_RATE / MAX_CONVERSION_RATE);
 
 	// Compare to DWT time
 	int32_t dT = cc - dwt_elapsedTime;
 
-	// Error if sample timing is off by > 50us
-	if(dT > 3600 || dT < -3600){
+	// Error if sample timing is off by more than one sample period
+	if(dT > (SYS_CLOCK_RATE/MAX_CONVERSION_RATE) || dT < -(SYS_CLOCK_RATE/MAX_CONVERSION_RATE)){
 		error(ERROR_SAMPLE_TIME);
 	}
 
+
 	/* Save data to the ring buffer for enabled channels after all over-samples have been collected */
-	if (overSampleCount == daq.oversamples){
-		uint8_t i = 0;
-		uint8_t ch = 0;
-		uint16_t rawVal[MAX_CHAN];
-		for(i=0;i<MAX_CHAN;i++){
-			if(daq.channel[i].enable){
-				rawVal[ch++] = (uint16_t) (rawValSum[i] / daq.oversamples);
+	if (subSampleCount == daq.subsamples){
+		if(recordData){ // Only record data after recordData has been set true
+			uint8_t i = 0;
+			uint8_t ch = 0;
+			uint16_t rawVal[MAX_CHAN];
+			for(i=0;i<MAX_CHAN;i++){
+				if(daq.channel[i].enable){
+					rawVal[ch++] = (uint16_t) (rawValSum[i] / daq.subsamples);
+				}
 			}
+			RingBuffer_writeData(rawBuff, &rawVal, 2*daq.channel_count); // 16 bit samples = 2bytes/sample
 		}
-		RingBuffer_writeData(rawBuff, &rawVal, 2*daq.channel_count); // 16 bit samples = 2bytes/sample
-		overSampleCount = 0;
+		subSampleCount = 0;
 	}
 
-	/* Clear sample sums */
-	if (overSampleCount == 0){
+	/* Clear sub sample sums */
+	if (subSampleCount == 0){
 		uint8_t i = 0;
 		for(i=0;i<MAX_CHAN;i++){
 			rawValSum[i] = 0;
 		}
 	}
 
-	/* Start the first conversion */
-
-	// Set ADC config
-	uint16_t sampleCFG = (1 << ADC_CFG ) | // Overwrite config
-						 (6 << ADC_INCC) | // Unipolar, referenced to COM
-						 ((MAX_CHAN-1) << ADC_IN)   | // Sequence channels 0,1.. (MAX_CHAN-1)
-						 (1 << ADC_BW)   | // Full bandwidth
-						 (1 << ADC_REF)  | // Internal reference output 4.096v
-						 (3 << ADC_SEQ)  | // Channel sequencer enabled
-						 (1 << ADC_RB);    // Do not read back config
-
-	// Disable SCT interrupt
-	NVIC_DisableIRQ(SCT0_IRQn);
-
-	// First transfer, set the config
-	adc_SPI_Transfer(sampleCFG); // 83cc
-
-	// Reset MRT count and set MRT1 timer for 4us repeating
+	// Reset MRT count and set MRT1 timer for ADC_US us repeating
 	MRTCount = 0;
-	Chip_MRT_SetInterval(LPC_MRT_CH(1), (4 * (SystemCoreClock / 1000000)) | MRT_INTVAL_LOAD); // 4us
+	Chip_MRT_SetInterval(LPC_MRT_CH(1), (ADC_US * (SYS_CLOCK_RATE / 1000000)) | MRT_INTVAL_LOAD);
 
-	// Increment over samples
-	overSampleCount++;
+	// Increment sub sample counter
+	subSampleCount++;
 }
 
 // ADC sample timing interrupt, called from main MRT interrupt in system
 // 38cc for dummy transfer, 130cc for intermediate samples, ~250cc for final sample
 void MRT1_IRQHandler(void){
 	if(MRTCount == 0){
-		// Dummy transfer
-		adc_SPI_dummy_Transfer();
+		// read vout
+		rawVout = adc_SPI_Transfer(0);
 	} else {
 		// Collect samples from all MAX_CHAN channels
 		rawValSum[MRTCount - 1] += adc_SPI_Transfer(0);
 		if(MRTCount == MAX_CHAN){
-			// Stop MRT1 timer and enable SCT timer
+			// Stop MRT1 timer, run control loop for vout
 			Chip_MRT_SetInterval(LPC_MRT_CH(1), MRT_INTVAL_LOAD);
 			Chip_MRT_IntClear(LPC_MRT_CH(1));
-			NVIC_EnableIRQ(SCT0_IRQn);
+			// Update output value at the PWM frequency
+			if(subSampleCount % (MAX_CONVERSION_RATE/VOUT_PWM_RATE) == 0){
+				daq_updateVout();
+			}
 		}
 	}
 	MRTCount++;
@@ -195,25 +175,29 @@ void daq_init(void){
 	// 0 the sample counts
 	sampleCount = 0;
 	sampleStrfCount = 0;
-	overSampleCount = 0;
+	subSampleCount = 0;
 
 	// Save button time for trigger delay
 	buttonTime = Chip_RTC_GetCount(LPC_RTC);
 
 	// Set loop to wait for trigger delay to expire
 	daq_loop = daq_triggerDelay;
-}
 
-// Start acquiring data
-void daq_record(){
-	log_string("Acquisition Start");
-	Board_LED_Color(LED_RED);
+	// Start interrupts to stabilize vout, but do not record data
+	recordData = false;
 
 	// Turn on vout
 	daq_voutEnable();
 
-	// Delay 200ms to allow power to stabilize
-	DWT_Delay(200000);
+	// Set ADC config
+	uint16_t adcCFG = (1 << ADC_CFG ) | // Overwrite config
+					  (6 << ADC_INCC) | // Unipolar, referenced to COM
+					  (MAX_CHAN << ADC_IN) | // Sequence channels 0,1.. (MAX_CHAN), include vout sense
+					  (1 << ADC_BW)   | // Full bandwidth
+					  (1 << ADC_REF)  | // Internal reference output 4.096v
+					  (3 << ADC_SEQ)  | // Channel sequencer enabled
+					  (1 << ADC_RB);    // Do not read back config
+	adc_SPI_Transfer(adcCFG);
 
 	// Start time according to DWT timer
 	dwt_lastTime = DWT_Get();
@@ -232,12 +216,24 @@ void daq_record(){
 	Chip_RIT_ClearIntStatus(LPC_RITIMER);
 
 	NVIC_EnableIRQ(RITIMER_IRQn);
-	NVIC_SetPriority(RITIMER_IRQn, 0x01); // Set to second highest priority to ensure sample timing accuracy
+	NVIC_SetPriority(RITIMER_IRQn, 0x00); // Set to highest priority to ensure sample timing accuracy
 
 	// Set up MRT timer interrupt
 	Chip_MRT_IntClear(LPC_MRT_CH(1));
 	Chip_MRT_SetEnabled(LPC_MRT_CH(1));
 	Chip_MRT_SetMode(LPC_MRT_CH(1), MRT_MODE_REPEAT);
+
+	// Delay 200ms at minimum to allow power to stabilize
+	DWT_Delay(200000);
+}
+
+// Start acquiring data
+void daq_record(){
+	log_string("Acquisition Start");
+	Board_LED_Color(LED_RED);
+
+	// Begin recording data in RIT interrupt
+	recordData = true;
 
 	// Set loop to write data from buffer to file
 	daq_loop = daq_writeData;
@@ -277,23 +273,16 @@ void daq_voutEnable(void){
 
 	// Set up Vout PWM
 	Chip_SCTPWM_Init(LPC_SCT0);
-	Chip_SCTPWM_SetRate(LPC_SCT0, 7200); // 7200Hz, 10000 counts per cycle
+	// TODO: Check if this also has an off-by-one error
+	Chip_SCTPWM_SetRate(LPC_SCT0, VOUT_PWM_RATE); // 10000Hz, 7200 counts per cycle
 	Chip_SWM_MovablePinAssign(SWM_SCT0_OUT0_O, VOUT_PWM); // Assign PWM to output pin
 	Chip_SCTPWM_SetOutPin(LPC_SCT0, 1, 0); // Set SCT PWM output 1 to SCT pin output 0
 	Chip_SCTPWM_SetDutyCycle(LPC_SCT0, 1, 0); // Set to duty cycle of 0
 	Chip_SCTPWM_Start(LPC_SCT0); // Start PWM
-
-	// Create SCT0 Vout PWM interrupt
-	Chip_SCT_EnableEventInt(LPC_SCT0, SCT_EVT_0);
-	NVIC_EnableIRQ(SCT0_IRQn);
-	NVIC_SetPriority(SCT0_IRQn, 0x00); // Set to higher priority than sampling
 }
 
 // Disable the output voltage
 void daq_voutDisable(void){
-	// Stop Vout interrupt
-	NVIC_DisableIRQ(SCT0_IRQn);
-
 	// Disable Vout using ~SHDN
 	Chip_GPIO_SetPinState(LPC_GPIO, 0, VOUT_N_SHDN, false);
 }
@@ -591,8 +580,8 @@ void daq_configCheck(void){
 		mag *= 10;
 	}
 
-	// Set the number of oversamples
-	daq.oversamples = MAX_CONVERSION_RATE / daq.sample_rate;
+	// Set the number of subsamples
+	daq.subsamples = MAX_CONVERSION_RATE / daq.sample_rate;
 
 	// Determine time resolution required
 	daq.time_res = 0;
