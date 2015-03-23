@@ -30,18 +30,14 @@ static uint32_t rawValSum[MAX_CHAN]; // Raw sample values, summed over the numbe
 static uint32_t MRTCount; // Count of runs of the MRT1 timer interrupt
 static uint32_t subSampleCount; // Count of over samples
 
-// Flag cleared when the data file is created, set on init
-static bool noFile;
-
 // Vout raw value read from ADC
 static volatile uint16_t rawVout;
 
 // Flag set when data recording starts
 static volatile bool recordData;
 
-
 // Vout PWM
-// Takes xxxcc (xx.xus). At 10000Hz, takes x.x% of cpu time
+// Takes 195cc (2.7us). At 10000Hz, takes 2.7% of cpu time
 void daq_updateVout(void){
     static int32_t intError;
     int32_t propError, pwmOut;
@@ -57,9 +53,9 @@ void daq_updateVout(void){
     // Proportional Error Saturation, low to reduce overshoot and decrease integral settling time for large steps
     propError = clamp(propError, -350, 350); // Saturation at +/- 1v
 
-    // Calculate PWM output value out of 10000
-    // Theoretical Duty = mv_out * 10 / ((3.3*39 / (39+51.7)) * (3.48E6/182E3 + 1)), = 0.350253
-    pwmOut = (daq.mv_out * 35025) / 100000 + intError / 300 + 2 * propError;
+    // Calculate PWM output value out of 7200
+    // Theoretical Duty = mv_out * 7.2 / ((3.3*39 / (39+51.7)) * (3.48E6/182E3 + 1)), = 0.25218
+    pwmOut = (daq.mv_out * 25218) / 100000 + intError / 400 + 2 * propError;
     pwmOut = clamp(pwmOut, 0, SYS_CLOCK_RATE/VOUT_PWM_RATE - 1);
 
     // Set PWM output
@@ -67,8 +63,8 @@ void daq_updateVout(void){
 }
 
 // Sample timer
-// 377cc every time, 823cc when saving to buffer
-// ~925cc total cpu time per 3-channel sample not writing to ring buffer, 1371cc when writing to buffer
+// 276cc every time, 705cc when saving to buffer
+// ~865cc total cpu time per 3-channel sample not writing to ring buffer, 1294cc when writing to buffer
 void RIT_IRQHandler(void){
 	Chip_RIT_ClearIntStatus(LPC_RITIMER);
 
@@ -88,8 +84,7 @@ void RIT_IRQHandler(void){
 		error(ERROR_SAMPLE_TIME);
 	}
 
-
-	/* Save data to the ring buffer for enabled channels after all over-samples have been collected */
+	/* Save data to the ring buffer for enabled channels after all sub-samples have been collected */
 	if (subSampleCount == daq.subsamples){
 		if(recordData){ // Only record data after recordData has been set true
 			uint8_t i = 0;
@@ -122,7 +117,7 @@ void RIT_IRQHandler(void){
 }
 
 // ADC sample timing interrupt, called from main MRT interrupt in system
-// 38cc for dummy transfer, 130cc for intermediate samples, ~250cc for final sample
+// 109cc for vout transfer, 136cc for intermediate samples, 208cc for final sample with no vout update, 428cc with vout update
 void MRT1_IRQHandler(void){
 	if(MRTCount == 0){
 		// read vout
@@ -168,9 +163,6 @@ void daq_init(void){
 
 	// Initialize the string formatted buffer
 	strBuff = RingBuffer_init(BLOCK_SIZE + SAMPLE_STR_SIZE);
-
-	// Set flag to indicate no data file exists
-	noFile = true;
 
 	// 0 the sample counts
 	sampleCount = 0;
@@ -232,11 +224,21 @@ void daq_record(){
 	log_string("Acquisition Start");
 	Board_LED_Color(LED_RED);
 
-	// Begin recording data in RIT interrupt
-	recordData = true;
+	// Make the data file
+	daq_makeDataFile();
+
+	// Write data file header to string buffer
+	daq_header();
+
+	// Write header to file
+	daq_writeData();
+	daq_writeBlock();
 
 	// Set loop to write data from buffer to file
 	daq_loop = daq_writeData;
+
+	// Begin recording data in RIT interrupt
+	recordData = true;
 }
 
 // Make the data file
@@ -253,7 +255,6 @@ void daq_makeDataFile(void){
 		strcat(fn+fn_size,".dat");
 	}
 	f_open(&dataFile,fn,FA_CREATE_ALWAYS | FA_WRITE);
-	noFile = false; // File has been created
 }
 
 // Wait for the trigger time to start
@@ -431,10 +432,6 @@ void daq_stop(void){
 // Write data from raw buffer to file, formatting to string  buffer as an intermediate step
 // Stop when the raw buffer is empty
 void daq_writeData(void){
-	if(noFile){
-		daq_makeDataFile();
-		daq_header(); // Write data file header to string buffer
-	}
 	while(true){
 		// Format raw data into the string buffer until a block is ready
 		while(RingBuffer_getSize(strBuff) < BLOCK_SIZE){
@@ -523,17 +520,18 @@ void daq_readableFormat(uint16_t *rawData, char *sampleStr){
 	for(i=0;i<MAX_CHAN;i++){
 		if(daq.channel[i].enable){ // Only scale enabled channels
 			// Calculate value scaled to uV
-			intToFix((fix64_t*)scaledVal+ch, rawData[ch]);
+			intToFix((fix64_t*)(scaledVal+ch), rawData[ch]);
+
 			if(daq.channel[i].range == V5){
-				fix_sub((fix64_t*)scaledVal+ch, &daq.channel[i].v5_zero_offset);
-				fix_mult((fix64_t*)scaledVal+ch, &daq.channel[i].v5_uV_per_LSB);
+				fix_sub((fix64_t*)(scaledVal+ch), &daq.channel[i].v5_zero_offset);
+				fix_mult((fix64_t*)(scaledVal+ch), &daq.channel[i].v5_uV_per_LSB);
 			} else {
-				fix_sub((fix64_t*)scaledVal+ch, &daq.channel[i].v24_zero_offset);
-				fix_mult((fix64_t*)scaledVal+ch, &daq.channel[i].v24_uV_per_LSB);
+				fix_sub((fix64_t*)(scaledVal+ch), &daq.channel[i].v24_zero_offset);
+				fix_mult((fix64_t*)(scaledVal+ch), &daq.channel[i].v24_uV_per_LSB);
 			}
 			// Scale uV to [units] * 1000000, ignoring user scale exponent
-			fix_sub((fix64_t*)scaledVal+ch, &daq.channel[i].offset_uV);
-			fix_mult((fix64_t*)scaledVal+ch, (fix64_t*)&daq.channel[i].units_per_volt);
+			fix_sub((fix64_t*)(scaledVal+ch), &daq.channel[i].offset_uV);
+			fix_mult((fix64_t*)(scaledVal+ch), (fix64_t*)&daq.channel[i].units_per_volt);
 			scaledVal[ch].exp = daq.channel[i].units_per_volt.exp - 6; // account for uV to V conversion
 			ch++;
 		}

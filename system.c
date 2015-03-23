@@ -20,7 +20,7 @@ void shutdown_message(char *message){
 // Safely stop all running system processes
 void system_halt(void){
 	// Disable Systick
-	 SysTick->CTRL  = 0;
+	SysTick->CTRL  = 0;
 
 	// Shut down procedures
 	if(system_state == STATE_DAQ){
