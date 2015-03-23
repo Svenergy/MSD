@@ -63,8 +63,8 @@ void daq_updateVout(void){
 }
 
 // Sample timer
-// 276cc every time, 705cc when saving to buffer
-// ~865cc total cpu time per 3-channel sample not writing to ring buffer, 1294cc when writing to buffer
+// 268cc no save, 701cc when saving to buffer
+// 484cc total cpu time per 3-channel sample not writing to ring buffer, 917cc when writing to buffer
 void RIT_IRQHandler(void){
 	Chip_RIT_ClearIntStatus(LPC_RITIMER);
 
@@ -74,13 +74,13 @@ void RIT_IRQHandler(void){
 	dwt_lastTime = dwt_currentTime;
 
 	// Read current target sample time in clock cycles, increment sample counter
-	uint64_t cc = (uint64_t)++sampleCount * (SYS_CLOCK_RATE / MAX_CONVERSION_RATE);
+	uint64_t cc = (uint64_t)++sampleCount * (SYS_CLOCK_RATE / CONVERSION_RATE);
 
 	// Compare to DWT time
 	int32_t dT = cc - dwt_elapsedTime;
 
-	// Error if sample timing is off by more than one sample period
-	if(dT > (SYS_CLOCK_RATE/MAX_CONVERSION_RATE) || dT < -(SYS_CLOCK_RATE/MAX_CONVERSION_RATE)){
+	// Error if sample timing is off by more than one conversion period
+	if(dT > (SYS_CLOCK_RATE/CONVERSION_RATE) || dT < -(SYS_CLOCK_RATE/CONVERSION_RATE)){
 		error(ERROR_SAMPLE_TIME);
 	}
 
@@ -112,30 +112,35 @@ void RIT_IRQHandler(void){
 	MRTCount = 0;
 	Chip_MRT_SetInterval(LPC_MRT_CH(1), (ADC_US * (SYS_CLOCK_RATE / 1000000)) | MRT_INTVAL_LOAD);
 
+	// Read vout from the last conversion
+	rawVout = LPC_SPI1->RXDAT;
+
+	// Start conversion of ch1
+	LPC_SPI1->TXDATCTL = SPI_TXDATCTL_LEN(16-1) | SPI_TXDATCTL_EOT | SPI_TXCTL_ASSERT_SSEL0;
+
 	// Increment sub sample counter
 	subSampleCount++;
 }
 
 // ADC sample timing interrupt, called from main MRT interrupt in system
-// 109cc for vout transfer, 136cc for intermediate samples, 208cc for final sample with no vout update, 428cc with vout update
+// 51cc, 49cc, 116cc no update /333cc vout update
 void MRT1_IRQHandler(void){
-	if(MRTCount == 0){
-		// read vout
-		rawVout = adc_SPI_Transfer(0);
-	} else {
-		// Collect samples from all MAX_CHAN channels
-		rawValSum[MRTCount - 1] += adc_SPI_Transfer(0);
-		if(MRTCount == MAX_CHAN){
-			// Stop MRT1 timer, run control loop for vout
-			Chip_MRT_SetInterval(LPC_MRT_CH(1), MRT_INTVAL_LOAD);
-			Chip_MRT_IntClear(LPC_MRT_CH(1));
-			// Update output value at the PWM frequency
-			if(subSampleCount % (MAX_CONVERSION_RATE/VOUT_PWM_RATE) == 0){
-				daq_updateVout();
-			}
+	// Read result of last conversion
+	rawValSum[MRTCount++] += LPC_SPI1->RXDAT;
+
+	// Start the next conversion
+	LPC_SPI1->TXDATCTL = SPI_TXDATCTL_LEN(16-1) | SPI_TXDATCTL_EOT | SPI_TXCTL_ASSERT_SSEL0;
+
+	if(MRTCount == MAX_CHAN){
+		// Stop MRT1 timer, run control loop for vout
+		Chip_MRT_SetInterval(LPC_MRT_CH(1), MRT_INTVAL_LOAD);
+		Chip_MRT_IntClear(LPC_MRT_CH(1));
+
+		// Update output value at the PWM frequency
+		if(subSampleCount % (CONVERSION_RATE/VOUT_PWM_RATE) == 0){
+			daq_updateVout();
 		}
 	}
-	MRTCount++;
 }
 
 // Set up daq
@@ -190,6 +195,11 @@ void daq_init(void){
 					  (3 << ADC_SEQ)  | // Channel sequencer enabled
 					  (1 << ADC_RB);    // Do not read back config
 	adc_SPI_Transfer(adcCFG);
+	adc_SPI_Transfer(0);
+
+	// Start first conversion
+	while(~LPC_SPI1->STAT & SPI_STAT_TXRDY){};
+	LPC_SPI1->TXDATCTL = SPI_TXDATCTL_LEN(16-1) | SPI_TXDATCTL_EOT | SPI_TXCTL_ASSERT_SSEL0;
 
 	// Start time according to DWT timer
 	dwt_lastTime = DWT_Get();
@@ -200,7 +210,7 @@ void daq_init(void){
 
 	/* Set timer compare value and periodic mode */
 	// Do not use Chip_RIT_SetTimerIntervalHz, for timing critical operations, it has an off by 1 error on the period in clock cycles
-	uint64_t cmp_value = SystemCoreClock / MAX_CONVERSION_RATE - 1;
+	uint64_t cmp_value = SystemCoreClock / CONVERSION_RATE - 1;
 	Chip_RIT_SetCompareValue(LPC_RITIMER, cmp_value);
 	Chip_RIT_EnableCompClear(LPC_RITIMER);
 
@@ -579,7 +589,7 @@ void daq_configCheck(void){
 	}
 
 	// Set the number of subsamples
-	daq.subsamples = MAX_CONVERSION_RATE / daq.sample_rate;
+	daq.subsamples = CONVERSION_RATE / daq.sample_rate;
 
 	// Determine time resolution required
 	daq.time_res = 0;

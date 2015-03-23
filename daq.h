@@ -17,9 +17,9 @@
 
 #define SYS_CLOCK_RATE 72000000 // System clock rate in Hz
 
-#define ADC_US 4 // microseconds between ADC samples
+#define ADC_US 4 // Microseconds between ADC samples
 
-#define MAX_CONVERSION_RATE 20000 // Maximum rate of conversion from ADC, limits sub sampling
+#define CONVERSION_RATE 40000 // Rate of conversion from ADC, limits sub sampling
 
 #define VOUT_PWM_RATE 10000 // Vout pwm rate in Hz, also rate of updates to output value
 
