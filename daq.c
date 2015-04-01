@@ -3,7 +3,6 @@
 // Data type strings
 static const char* const dataType[] = {
 	"READABLE",
-	"HEX",
 	"BINARY"
 };
 
@@ -166,8 +165,10 @@ void daq_init(void){
 	// Clear the raw data buffer
 	RingBuffer_clear(rawBuff);
 
-	// Initialize the string formatted buffer
-	strBuff = RingBuffer_init(BLOCK_SIZE + SAMPLE_STR_SIZE);
+	// Initialize the string formatted buffer if in readable mode
+	if(daq.data_type == READABLE){
+		strBuff = RingBuffer_init(BLOCK_SIZE + SAMPLE_STR_SIZE);
+	}
 
 	// 0 the sample counts
 	sampleCount = 0;
@@ -237,12 +238,8 @@ void daq_record(){
 	// Make the data file
 	daq_makeDataFile();
 
-	// Write data file header to string buffer
+	// Write data file header
 	daq_header();
-
-	// Write header to file
-	daq_writeData();
-	daq_writeBlock();
 
 	// Set loop to write data from buffer to file
 	daq_loop = daq_writeData;
@@ -300,39 +297,26 @@ void daq_voutDisable(void){
 
 // Write data file header
 void daq_header(void){
-	uint8_t i;
-	char headerStr[120];
-	uint8_t headerStr_size = 0;
+	char hStr[1024];
+	uint32_t hSize = 0;
 
 	/**** Data type ****
 	 * Ex.
-	 * data type, HEX
+	 * data type, BINARY
 	 */
-	sprintf(headerStr, "data type, %s\n",dataType[daq.data_type]);
-#if defined(DEBUG) && defined(PRINT_DATA_UART)
-	putLineUART(headerStr);
-#endif
-	RingBuffer_writeStr(strBuff, headerStr);
+	hSize = sprintf(hStr, "data type, %s\n", dataType[daq.data_type]);
 
 	/**** User comment ****
 	 * Ex.
 	 * comment, User header comment
 	 */
-	sprintf(headerStr, "comment, %s\n",daq.user_comment);
-#if defined(DEBUG) && defined(PRINT_DATA_UART)
-	putLineUART(headerStr);
-#endif
-	RingBuffer_writeStr(strBuff, headerStr);
+	hSize += sprintf(hStr+hSize, "comment, %s\n", daq.user_comment);
 
 	/**** Time Stamps ****
 	 * Ex.
 	 * date time, Mon Mar 02 20:02:43 2015
 	 */
-	sprintf(headerStr, "date time, %s\n", getTimeStr());
-#if defined(DEBUG) && defined(PRINT_DATA_UART)
-	putLineUART(headerStr);
-#endif
-	RingBuffer_writeStr(strBuff, headerStr);
+	hSize += sprintf(hStr+hSize, "date time, %s\n", getTimeStr());
 
 	/**** Channel Scaling ****
 	 * Ex.
@@ -340,13 +324,14 @@ void daq_header(void){
 	 * ch2, scale, 1.000000e+00, V/V, offset, 0.000000e+00, V, cscale, 7.454887e-04, V/LSB, coffset, 3.251113e+04, LSB
 	 * ch3, scale, 1.000000e+00, V/V, offset, 0.000000e+00, V, cscale, 7.454887e-04, V/LSB, coffset, 3.251113e+04, LSB
 	 */
+	uint8_t i;
 	for(i=0;i<MAX_CHAN;i++){
 		if(daq.channel[i].enable){
-			headerStr_size = sprintf(headerStr, "ch%d, scale, ", i+1);
-			headerStr_size += fullDecFloatToStr(headerStr+headerStr_size, &daq.channel[i].units_per_volt, 6);
-			headerStr_size += sprintf(headerStr+headerStr_size, ", %s/V, offset, ", daq.channel[i].unit_name);
-			headerStr_size += fixToStr(headerStr+headerStr_size, &daq.channel[i].offset_uV, 6, -6);
-			headerStr_size += sprintf(headerStr+headerStr_size, ", V, ");
+			hSize += sprintf(hStr+hSize, "ch%d, scale, ", i+1);
+			hSize += fullDecFloatToStr(hStr+hSize, &daq.channel[i].units_per_volt, 6);
+			hSize += sprintf(hStr+hSize, ", %s/V, offset, ", daq.channel[i].unit_name);
+			hSize += fixToStr(hStr+hSize, &daq.channel[i].offset_uV, 6, -6);
+			hSize += sprintf(hStr+hSize, ", V, ");
 			fix64_t *v_per_LSB;
 			fix64_t *off_LSB;
 			if(daq.channel[i].range == V5){
@@ -356,15 +341,11 @@ void daq_header(void){
 				v_per_LSB = &daq.channel[i].v24_uV_per_LSB;
 				off_LSB =	&daq.channel[i].v24_zero_offset;
 			}
-			headerStr_size += sprintf(headerStr+headerStr_size, "cscale, ");
-			headerStr_size += fixToStr(headerStr+headerStr_size, v_per_LSB, 6, -6);
-			headerStr_size += sprintf(headerStr+headerStr_size, ", V/LSB, coffset, ");
-			headerStr_size += fixToStr(headerStr+headerStr_size, off_LSB, 6, 0);
-			sprintf(headerStr+headerStr_size, ", LSB\n");
-#if defined(DEBUG) && defined(PRINT_DATA_UART)
-			putLineUART(headerStr);
-#endif
-			RingBuffer_writeStr(strBuff, headerStr);
+			hSize += sprintf(hStr+hSize, "cscale, ");
+			hSize += fixToStr(hStr+hSize, v_per_LSB, 6, -6);
+			hSize += sprintf(hStr+hSize, ", V/LSB, coffset, ");
+			hSize += fixToStr(hStr+hSize, off_LSB, 6, 0);
+			hSize += sprintf(hStr+hSize, ", LSB\n");
 		}
 	}
 
@@ -373,143 +354,136 @@ void daq_header(void){
 	 * sample rate, 1000, Hz
 	 * sample period, 0.001, s
 	 */
-	headerStr_size = sprintf(headerStr, "sample rate, %d, Hz\n", daq.sample_rate);
-	headerStr_size += sprintf(headerStr+headerStr_size, "sample period, %.6f, s\n", 1.0 / daq.sample_rate);
-#if defined(DEBUG) && defined(PRINT_DATA_UART)
-	putLineUART(headerStr);
-#endif
-	RingBuffer_writeStr(strBuff, headerStr);
+	hSize += sprintf(hStr+hSize, "sample rate, %d, Hz\n", daq.sample_rate);
+	hSize += sprintf(hStr+hSize, "sample period, %.6f, s\n", 1.0 / daq.sample_rate);
 
 	/**** End header ****
 	 * Ex.
 	 * end header
 	 */
-	strcpy(headerStr, "end header\n");
-#if defined(DEBUG) && defined(PRINT_DATA_UART)
-	putLineUART(headerStr);
-#endif
-	RingBuffer_writeStr(strBuff, headerStr);
+	hSize += sprintf(hStr+hSize, "end header\n");
 
 	/**** Channel Labels ****
 	 * Ex.
 	 * time[s], ch1[V], ch1[V], ch1[V]
 	 */
 	if(daq.data_type == READABLE){
-		headerStr_size = sprintf(headerStr, "time[s]");
+		hSize += sprintf(hStr+hSize, "time[s]");
 		for(i=0;i<MAX_CHAN;i++){
 			if(daq.channel[i].enable){
-				headerStr_size += sprintf(headerStr+headerStr_size, ", ch%d[%s]", i+1, daq.channel[i].unit_name);
+				hSize += sprintf(hStr+hSize, ", ch%d[%s]", i+1, daq.channel[i].unit_name);
 			}
 		}
-		headerStr[headerStr_size++] = '\n';
-		headerStr[headerStr_size++] = '\0';
-#if defined(DEBUG) && defined(PRINT_DATA_UART)
-		putLineUART(headerStr);
-#endif
-		RingBuffer_writeStr(strBuff, headerStr);
+		hSize += sprintf(hStr+hSize, "\n");
 	}
+
+	// Write data to file
+	daq_writeBlock(hStr, hSize);
+
+#if defined(DEBUG) && defined(PRINT_DATA_UART)
+	putLineUART(hStr);
+#endif
 }
 
 // Stop acquiring data
 void daq_stop(void){
+	// Stop RIT interrupt
+	Chip_RIT_DeInit(LPC_RITIMER);
+	NVIC_DisableIRQ(RITIMER_IRQn);
+
+	// Stop MRT1 timer
+	Chip_MRT_SetInterval(LPC_MRT_CH(1), MRT_INTVAL_LOAD);
+	Chip_MRT_IntClear(LPC_MRT_CH(1));
+	Chip_MRT_SetDisabled(LPC_MRT_CH(1));
+
+	// Turn off output voltage
+	daq_voutDisable();
+
+	log_string("Acquisition Stop");
+
 	if(daq_loop == daq_writeData){ // If data has been written
-		// Stop RIT interrupt
-		Chip_RIT_DeInit(LPC_RITIMER);
-		NVIC_DisableIRQ(RITIMER_IRQn);
-
-		// Stop MRT1 timer
-		Chip_MRT_SetInterval(LPC_MRT_CH(1), MRT_INTVAL_LOAD);
-		Chip_MRT_IntClear(LPC_MRT_CH(1));
-		Chip_MRT_SetDisabled(LPC_MRT_CH(1));
-
-		// Turn off output voltage
-		daq_voutDisable();
-
-		log_string("Acquisition Stop");
-
-		// flush ring buffer to disk
-		daq_writeData();
-		daq_writeBlock(); // Write any partial block remaining
-
-		// Destroy the string formatted buffer
-		RingBuffer_destroy(strBuff);
+		// Flush data buffer to disk
+		daq_flushData();
 
 		// Write all buffered data to disk
 		f_close(&dataFile);
 	}
+
+	// Destroy the string formatted buffer if it exists
+	RingBuffer_destroy(strBuff);
 }
 
-// Write data from raw buffer to file, formatting to string  buffer as an intermediate step
-// Stop when the raw buffer is empty
+// Write data from raw buffer to file, formatting to string  buffer as an intermediate step if needed
 void daq_writeData(void){
 	while(true){
-		// Format raw data into the string buffer until a block is ready
-		while(RingBuffer_getSize(strBuff) < BLOCK_SIZE){
-			int32_t br;
-			uint16_t rawData[MAX_CHAN];
-			br = RingBuffer_read(rawBuff, rawData, daq.channel_count*2);
-			if(br < daq.channel_count*2){
-				return; // No more raw data, finished processing
-			} else {
-				// Format data into string
-				char sampleStr[SAMPLE_STR_SIZE];
-				switch (daq.data_type){
-				case READABLE:
+
+		// Generate a block of file data, or return if a block cannot be made
+		switch (daq.data_type){
+		case READABLE:
+
+			while(RingBuffer_getSize(strBuff) < BLOCK_SIZE){
+				uint16_t rawData[MAX_CHAN];
+				if(RingBuffer_read(rawBuff, rawData, daq.channel_count*2) == daq.channel_count*2){
+					// Format data into string
+					char sampleStr[SAMPLE_STR_SIZE];
 					daq_readableFormat(rawData, sampleStr);
 					RingBuffer_writeStr(strBuff, sampleStr);
-					break;
-				case HEX:
-					daq_hexFormat(rawData, sampleStr);
-					RingBuffer_writeStr(strBuff, sampleStr);
-					break;
-				case BINARY:
-					RingBuffer_writeData(strBuff, rawData, daq.channel_count*2);
-					sampleStr[0] = '\0';
-					break;
-				}
 #if defined(DEBUG) && defined(PRINT_DATA_UART)
-				putLineUART(sampleStr);
+					putLineUART(sampleStr);
 #endif
+				} else {
+					return; // No more raw data, finished processing
+				}
 			}
+			char data[BLOCK_SIZE];
+			RingBuffer_read(strBuff, data, BLOCK_SIZE);
+			daq_writeBlock(data, BLOCK_SIZE);
+
+			break;
+		case BINARY:
+
+			if(RingBuffer_getSize(rawBuff) >= BLOCK_SIZE){
+				char data[BLOCK_SIZE];
+				RingBuffer_read(rawBuff, data, BLOCK_SIZE);
+				daq_writeBlock(data, BLOCK_SIZE);
+			} else {
+				return;
+			}
+
+			break;
 		}
-		daq_writeBlock();
+
 	}
 }
 
-// Write a single block to the data file from the string buffer
-void daq_writeBlock(void){
+// Flush data from raw buffer to file, formatting to string  buffer as an intermediate step if needed
+void daq_flushData(void){
+	// Write full blocks of data to the file
+	daq_writeData();
+
+	// Flush remaining partial block
+	char data[BLOCK_SIZE];
 	int32_t br;
+	switch (daq.data_type){
+	case READABLE:
+		br = RingBuffer_read(strBuff, data, BLOCK_SIZE);
+		break;
+	case BINARY:
+		br = RingBuffer_read(rawBuff, data, BLOCK_SIZE);
+		break;
+	}
+	daq_writeBlock(data, br);
+}
+
+// Write a single block to the data file
+void daq_writeBlock(void *data, int32_t data_size){
 	UINT bw;
 	FRESULT errorCode;
-	char data[BLOCK_SIZE];
-	br = RingBuffer_read(strBuff, data, BLOCK_SIZE);
 	Board_LED_Color(LED_YELLOW);
-	if((errorCode = f_write(&dataFile, data, br, &bw)) != FR_OK){
+	if((errorCode = f_write(&dataFile, data, data_size, &bw)) != FR_OK){
 		error(ERROR_F_WRITE);
 	}
 	Board_LED_Color(LED_RED);
-}
-
-// Convert rawData into a hex formatted output string
-void daq_hexFormat(uint16_t *rawData, char *sampleStr){
-	// sampleStr Ex. 18b39ce2b94f
-	int32_t sampleStr_size = 0;
-	int32_t i;
-	for(i=0;i<daq.channel_count;i++){
-		int32_t j;
-		uint32_t val = rawData[i];
-		for(j=0;j<4;j++){
-			char digit = ((val & 0x0000F000) >> 12);
-			if(digit > 9){
-				sampleStr[sampleStr_size++] = digit - 10 + 'A';
-			}else{
-				sampleStr[sampleStr_size++] = digit + '0';
-			}
-			val = val << 4;
-		}
-	}
-	sampleStr[sampleStr_size++] = '\n';
-	sampleStr[sampleStr_size++] = '\0';
 }
 
 // Convert rawData into a readable scaled and formatted output string

@@ -42,7 +42,6 @@ typedef enum {
 // Data type
 typedef enum {
 	READABLE,
-	HEX,
 	BINARY
 } DATA_T;
 
@@ -123,18 +122,17 @@ void daq_header(void);
 // Stop acquiring data
 void daq_stop(void);
 
-// Write data from raw buffer to file, formatting to string  buffer as an intermediate step
-// Stop when the raw buffer is empty
+// Write data from raw buffer to file, formatting to string  buffer as an intermediate step if needed
 void daq_writeData(void);
 
+// Flush data from raw buffer to file, formatting to string  buffer as an intermediate step if needed
+void daq_flushData(void);
+
 // Write a single block to the data file from the string buffer
-void daq_writeBlock(void);
+void daq_writeBlock(void *data, int32_t data_size);
 
 // Convert rawData into a readable formatted output string
 void daq_readableFormat(uint16_t *rawData, char *sampleStr);
-
-// Convert rawData into a hex output string
-void daq_hexFormat(uint16_t *rawData, char *sampleStr);
 
 // Limit configuration values to valid ranges
 void daq_configCheck(void);

@@ -59,7 +59,7 @@ void readConfigDefault(void){
 	// Trigger Delay in seconds
 	daq.trigger_delay = 0;
 
-	// Data mode can be READABLE, HEX, or BINARY
+	// Data mode can be READABLE or BINARY
 	daq.data_type = BINARY;
 
 	// Vout = 5v
@@ -128,8 +128,6 @@ void readConfigFromFile(){
 		/* Line is now data mode */
 		if (line[0] == 'R' || line[0] == 'r') {
 			daq.data_type = READABLE;
-		} else if (line[0] == 'H' || line[0] == 'h') {
-			daq.data_type = HEX;
 		} else if (line[0] == 'B' || line[0] == 'b') {
 			daq.data_type = BINARY;
 		} else {
@@ -251,9 +249,6 @@ void writeConfigToFile() {
 	switch (daq.data_type){
 		case READABLE:
 			putsAndNewLines("R", 2);
-			break;
-		case HEX:
-			putsAndNewLines("H", 2);
 			break;
 		case BINARY:
 			putsAndNewLines("B", 2);
