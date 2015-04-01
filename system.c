@@ -41,9 +41,6 @@ void system_power_off(void){
 	while ( !(Chip_UART_GetStatus(LPC_USART0)&UART_STAT_TXIDLE) ){};
 #endif
 
-	// Unmount file system
-	f_mount(NULL,"",0);
-
 	// Turn system power off
 	Chip_GPIO_SetPinState(LPC_GPIO, 0, PWR_ON_OUT, 0);
 	Board_LED_Color(LED_OFF);

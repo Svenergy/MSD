@@ -29,4 +29,6 @@ extern SD_CardInfo cardinfo;
 
 void error(ERROR_CODE code);
 
+void error_handler(void);
+
 #endif /* __ERROR_ */

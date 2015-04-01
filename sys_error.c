@@ -1,6 +1,7 @@
 #include "sys_error.h"
 
-volatile bool inError; // Set when handling an error to prevent recursion
+static volatile bool inError; // Set when handling an error to prevent recursion
+static volatile ERROR_CODE globalError;
 
 static const char* const errorString[] = {
 	"ERROR_UNKNOWN",
@@ -18,27 +19,36 @@ static const char* const errorString[] = {
 
 void error(ERROR_CODE errorCode){
 	// Only handle the first Error
-	if(inError)
+	if(inError){
 		return;
+	}
 	inError = true;
 
-	// Disable systick and shutdown current processes
-	system_halt();
+	// Set error code
+	globalError = errorCode;
+}
 
-	// Blue LED on in error
-	Board_LED_Color(LED_BLUE);
+void error_handler(void){
+	if(inError){
 
-	// Mount file system
-	f_mount(fatfs,"",0);
+		// Disable systick and shutdown current processes
+		system_halt();
 
-	// Reset SD card
-	sd_reset(&cardinfo);
+		// Blue LED on in error
+		Board_LED_Color(LED_BLUE);
 
-	// Write error code to log file
-	log_string(errorString[errorCode]);
+		// Mount file system
+		f_mount(fatfs,"",0);
 
-	// Delay 5 seconds
-	DWT_Delay(5000000);
+		// Reset SD card
+		sd_reset(&cardinfo);
 
-	system_power_off();
+		// Write error code to log file
+		log_string(errorString[globalError]);
+
+		// Delay 5 seconds
+		DWT_Delay(5000000);
+
+		system_power_off();
+	}
 }

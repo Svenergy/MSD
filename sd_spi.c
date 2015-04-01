@@ -323,10 +323,23 @@ SD_ERROR init_sd_spi(SD_CardInfo *cardinfo) {
 
 // Hard reset power and re-initialize
 SD_ERROR sd_reset(SD_CardInfo *cardinfo){
-	//Hard reset
+	// Hard reset
+
+	// Power off card
 	Chip_GPIO_SetPinDIROutput(LPC_GPIO, 0, SD_POWER);
 	Chip_GPIO_SetPinState(LPC_GPIO, 0, SD_POWER, 1);
-	DWT_Delay(100000); //100ms delay
+
+	// Disable IO to prevent unintended powering of the card
+	Chip_SPI_Disable(LPC_SPI0);
+	Chip_SWM_MovablePortPinAssign(SWM_SPI0_SSELSN_0_IO, 0, 0xFF);
+	Chip_SWM_MovablePortPinAssign(SWM_SPI0_MOSI_IO, 0, 0xFF);
+
+	DWT_Delay(100000); // 100ms delay
+
+	// Re-enable IO
+	Chip_SWM_MovablePortPinAssign(SWM_SPI0_SSELSN_0_IO, 0, SD_SPI_CS);
+	Chip_SWM_MovablePortPinAssign(SWM_SPI0_MOSI_IO, 0, SD_SPI_MOSI);
+
 	Chip_GPIO_SetPinState(LPC_GPIO, 0, SD_POWER, 0);
 	// Initialize SD card
 	return init_sd_spi(cardinfo);
@@ -337,7 +350,7 @@ uint8_t sd_read_block (uint32_t blockaddr,uint8_t *data) {
   uint8_t tmp;
   uint32_t time1,time2;
 
-  // convert to block address
+  // Convert to block address
   if(cardinfo.CardType!=SD_CARD_HIGH_CAPACITY) {
     blockaddr<<=SD_BLOCKSIZE_NBITS;
   }
@@ -390,7 +403,7 @@ uint8_t sd_read_multiple_blocks (uint32_t blockaddr, uint32_t blockcount, uint8_
   uint8_t tmp;
   uint32_t time1,time2;
 
-  // convert to block address
+  // Convert to block address
   if(cardinfo.CardType!=SD_CARD_HIGH_CAPACITY) {
     blockaddr<<=SD_BLOCKSIZE_NBITS;
   }

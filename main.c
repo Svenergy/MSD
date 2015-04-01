@@ -161,6 +161,9 @@ void SysTick_Handler(void){
 	if (pb_longPress()){
 		shutdown_message("Power Button Pressed");
 	}
+
+	/* Handle errors */
+	error_handler();
 }
 
 int main(void) {
