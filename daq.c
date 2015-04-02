@@ -25,9 +25,13 @@ static volatile uint32_t dwt_lastTime; // Time of the last sample according to t
 static volatile uint64_t dwt_elapsedTime; // Total sampling elapsed time according to the DWT timer
 static uint32_t buttonTime; // Time that the record button was pressed, used for trigger delay
 
+// Sampling
 static uint32_t rawValSum[MAX_CHAN]; // Raw sample values, summed over the number of over-samples
 static uint32_t MRTCount; // Count of runs of the MRT1 timer interrupt
 static uint32_t subSampleCount; // Count of over samples
+
+// AC coupling
+
 
 // Vout raw value read from ADC
 static volatile uint16_t rawVout;

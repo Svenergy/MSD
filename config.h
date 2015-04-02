@@ -15,6 +15,8 @@
 #include "fixed.h"
 #include "ff.h"
 #include "daq.h"
+#include "system.h"
+#include "stdarg.h"
 
 #define LINE_SIZE 100
 
@@ -34,7 +36,8 @@ void setTime(char *timeStr);
 
 char *getTimeStr(void);
 
-void putsAndNewLines(const char* string, int32_t lineCount);
+// Wrapper for printf and f_puts that writes the string to the config file
+void config_printf(char *fmt, ...);
 
 void getNonBlankLine(char* line, int32_t skipCount);
 
