@@ -65,14 +65,17 @@ typedef enum {
 #define ADC_MISO 2
 #define ADC_SCK  1
 
-// SD card SPI and control pins
-#define CARD_DETECT 12
-#define SD_POWER    8
-
+// RAM buffer / SD card SPI
 #define SD_SPI_CLK  18
-#define SD_SPI_CS   11
 #define SD_SPI_MOSI 10
 #define SD_SPI_MISO 9
+
+#define SD_SPI_CS   11
+#define RAM_SPI_CS   13
+
+// SD card control
+#define CARD_DETECT 12
+#define SD_POWER    8
 
 // USB pins
 #define VBUS 16
