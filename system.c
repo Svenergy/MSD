@@ -81,7 +81,7 @@ float read_vBat(int32_t n){
 	}
 
 	// Convert raw value to volts
-	return (3.3*sum) / (4096 * n);
+	return (2 * 3.3 * sum) / (4096 * n);
 }
 
 /* Interrupt handlers with multiple functions */
