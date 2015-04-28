@@ -34,9 +34,9 @@ typedef enum {
 /* all pins are on GPIO port 0 */
 
 // RGB LED
-#define RED   15
-#define GREEN 14
-#define BLUE  13
+#define RED   17
+#define GREEN 15
+#define BLUE  14
 
 // Power system control
 #define PWR_ON_OUT   7

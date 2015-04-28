@@ -44,9 +44,9 @@
    state are in this table. */
 STATIC const PINMUX_GRP_T ioconSetup[] = {
 	/* RGB LED */
-	{0, RED,   (IOCON_MODE_INACT | IOCON_DIGMODE_EN)},			/* PIO0_15 (low enable) */
-	{0, GREEN, (IOCON_MODE_INACT | IOCON_DIGMODE_EN)},			/* PIO0_14 */
-	{0, BLUE,  (IOCON_MODE_INACT | IOCON_DIGMODE_EN)},			/* PIO1_13 */
+	{0, RED,   (IOCON_MODE_INACT | IOCON_DIGMODE_EN)},			/* PIO0_17 (low enable) */
+	{0, GREEN, (IOCON_MODE_INACT | IOCON_DIGMODE_EN)},			/* PIO0_15 */
+	{0, BLUE,  (IOCON_MODE_INACT | IOCON_DIGMODE_EN)},			/* PIO1_14 */
 
 	/* Power system control */
 	{0, PWR_ON_OUT,	  (IOCON_MODE_PULLUP | IOCON_DIGMODE_EN)},	/* PIO0_7 */
