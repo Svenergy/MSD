@@ -56,8 +56,8 @@ typedef enum {
 #define RSEL3 28
 
 // Debug UART
-#define UART0_TX 26
-#define UART0_RX 27
+#define UART0_RX 19
+#define UART0_TX 20
 
 // ADC SPI
 #define ADC_SS   29

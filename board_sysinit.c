@@ -59,10 +59,14 @@ STATIC const PINMUX_GRP_T ioconSetup[] = {
 	{0, VOUT_N_SHDN, (IOCON_MODE_PULLDOWN | IOCON_DIGMODE_EN)},	/* PIO0_25 */
 	{0, VOUT_PWM,  (IOCON_MODE_PULLDOWN | IOCON_DIGMODE_EN)},	/* PIO0_24 */
 
-	/* Analog range selection / debug UART */
-	{0, RSEL1, (IOCON_MODE_PULLUP | IOCON_DIGMODE_EN)},			/* PIO0_26-UART0_TX */
-	{0, RSEL2, (IOCON_MODE_PULLUP | IOCON_DIGMODE_EN)},			/* PIO0_27-UART0_RX */
+	/* Analog range selection */
+	{0, RSEL1, (IOCON_MODE_PULLUP | IOCON_DIGMODE_EN)},			/* PIO0_26 */
+	{0, RSEL2, (IOCON_MODE_PULLUP | IOCON_DIGMODE_EN)},			/* PIO0_27 */
 	{0, RSEL3, (IOCON_MODE_PULLUP | IOCON_DIGMODE_EN)},			/* PIO0_28 */
+
+	/* Debug UART */
+	{0, UART0_RX, (IOCON_MODE_PULLUP | IOCON_DIGMODE_EN)},		/* PIO0_19 */
+	{0, UART0_TX, (IOCON_MODE_PULLUP | IOCON_DIGMODE_EN)},		/* PIO0_20 */
 
 	/* ADC SPI */
 	{0, ADC_SCK,  (IOCON_MODE_PULLDOWN | IOCON_DIGMODE_EN)},	/* PIO0_1 */
@@ -109,10 +113,8 @@ STATIC const SWM_GRP_T swmSetup[] = {
 	{(uint16_t) SWM_SPI1_MISO_IO, 0, ADC_MISO},			/* PIO0_2 */
 
 	/* UART */
-#ifdef DEBUG
-	{(uint16_t) SWM_UART0_RXD_I, 0, UART0_RX},			/* PIO0_27-UART0_RX */
-	{(uint16_t) SWM_UART0_TXD_O, 0, UART0_TX},			/* PIO0_26-UART0_TX */
-#endif
+	{(uint16_t) SWM_UART0_RXD_I, 0, UART0_RX},			/* PIO0_19 */
+	{(uint16_t) SWM_UART0_TXD_O, 0, UART0_TX},			/* PIO0_20 */
 };
 
 /* Setup fixed pin functions (GPIOs are fixed) */
