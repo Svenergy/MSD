@@ -158,13 +158,11 @@ void daq_init(void){
 	adc_spi_setup();
 
 	// Set up channel ranges in hardware mux
-#ifndef DEBUG
 	int i;
 	for(i=0;i<3;i++){ // This Kills the UART
 		Chip_GPIO_SetPinDIROutput(LPC_GPIO, 0, rsel_pins[i]);
 		Chip_GPIO_SetPinState(LPC_GPIO, 0, rsel_pins[i], daq.channel[i].range);
 	}
-#endif
 
 	// Clear the raw data buffer
 	RingBuffer_clear(rawBuff);

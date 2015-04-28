@@ -44,13 +44,13 @@ void putLineUART(const char *send_data) {
 
 static void Init_UART0_PinMux(void) {
   
-  /* UART signals on pins PIO0_26 and PIO0_27 */
-  Chip_IOCON_PinMuxSet(LPC_IOCON, 0, RSEL2, (IOCON_FUNC0 | IOCON_MODE_INACT | IOCON_DIGMODE_EN));
-  Chip_IOCON_PinMuxSet(LPC_IOCON, 0, RSEL1, (IOCON_FUNC0 | IOCON_MODE_INACT | IOCON_DIGMODE_EN));
+  /* UART signals on pins PIO0_19 and PIO0_20 */
+  Chip_IOCON_PinMuxSet(LPC_IOCON, 0, UART0_RX, (IOCON_FUNC0 | IOCON_MODE_INACT | IOCON_DIGMODE_EN));
+  Chip_IOCON_PinMuxSet(LPC_IOCON, 0, UART0_TX, (IOCON_FUNC0 | IOCON_MODE_INACT | IOCON_DIGMODE_EN));
 
   /* UART signal muxing via SWM */
-  Chip_SWM_MovablePortPinAssign(SWM_UART0_RXD_I, 0, RSEL2);
-  Chip_SWM_MovablePortPinAssign(SWM_UART0_TXD_O, 0, RSEL1);
+  Chip_SWM_MovablePortPinAssign(SWM_UART0_RXD_I, 0, UART0_RX);
+  Chip_SWM_MovablePortPinAssign(SWM_UART0_TXD_O, 0, UART0_TX);
 }
 
 static uint8_t setupUART(uint32_t baud) {
