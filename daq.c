@@ -30,9 +30,6 @@ static uint32_t rawValSum[MAX_CHAN]; // Raw sample values, summed over the numbe
 static uint32_t MRTCount; // Count of runs of the MRT1 timer interrupt
 static uint32_t subSampleCount; // Count of over samples
 
-// AC coupling
-
-
 // Vout raw value read from ADC
 static volatile uint16_t rawVout;
 
