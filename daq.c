@@ -31,7 +31,7 @@ static uint32_t MRTCount; // Count of runs of the MRT1 timer interrupt
 static uint32_t subSampleCount; // Count of over samples
 
 // AC coupling
-
+static uint32_t demo_counter;
 
 // Vout raw value read from ADC
 static volatile uint16_t rawVout;
@@ -293,11 +293,17 @@ void daq_header(void){
 	char hStr[1024];
 	uint32_t hSize = 0;
 
+	/**** Incrementing Demo Counter ****
+	 * Ex.
+	 * 10
+	 */
+	hSize = sprintf(hStr, "%d\n", demo_counter++);
+
 	/**** Data type ****
 	 * Ex.
 	 * data type, BINARY
 	 */
-	hSize = sprintf(hStr, "data type, %s\n", dataType[daq.data_type]);
+	hSize += sprintf(hStr+hSize, "data type, %s\n", dataType[daq.data_type]);
 
 	/**** User comment ****
 	 * Ex.
