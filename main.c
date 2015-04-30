@@ -108,7 +108,7 @@ void SysTick_Handler(void){
 		daq_loop();
 
 		// If demo sampling is completed
-		if (sampleCount > DEMO_SAMPLE_COUNT){
+		if (demoSampleCount > DEMO_SAMPLE_COUNT){
 			Board_LED_Color(LED_PURPLE);
 			daq_stop();
 			f_mount(NULL,"",0); // unmount file system

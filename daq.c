@@ -19,7 +19,7 @@ DAQ daq;
 void (*daq_loop)(void);
 
 // Time tracking
-volatile uint32_t sampleCount; // Count of samples taken in the current recording, used for timing verification
+static volatile uint32_t sampleCount; // Count of samples taken in the current recording, used for timing verification
 static uint32_t sampleStrfCount; // Count of samples string formatted in the current recording
 static volatile uint32_t dwt_lastTime; // Time of the last sample according to the DWT timer, used to measure sampling integral error and jitter
 static volatile uint64_t dwt_elapsedTime; // Total sampling elapsed time according to the DWT timer
@@ -30,7 +30,8 @@ static uint32_t rawValSum[MAX_CHAN]; // Raw sample values, summed over the numbe
 static uint32_t MRTCount; // Count of runs of the MRT1 timer interrupt
 static uint32_t subSampleCount; // Count of over samples
 
-// AC coupling
+// demo
+uint32_t demoSampleCount;
 static uint32_t demo_counter;
 
 // Vout raw value read from ADC
@@ -98,6 +99,7 @@ void RIT_IRQHandler(void){
 					rawVal[ch++] = (uint16_t) (rawValSum[i] / daq.subsamples);
 				}
 			}
+			demoSampleCount++;
 			RingBuffer_writeData(rawBuff, &rawVal, 2*daq.channel_count); // 16 bit samples = 2bytes/sample
 		}
 		subSampleCount = 0;
@@ -175,6 +177,7 @@ void daq_init(void){
 	}
 
 	// 0 the sample counts
+	demoSampleCount = 0;
 	sampleCount = 0;
 	sampleStrfCount = 0;
 	subSampleCount = 0;
