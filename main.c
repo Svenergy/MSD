@@ -113,7 +113,7 @@ void SysTick_Handler(void){
 			daq_stop();
 			f_mount(NULL,"",0); // unmount file system
 			msc_init();
-			DWT_Delay(10000000); // Delay 10 seconds to allow reading of the date
+			DWT_Delay(6000000); // Delay 6 seconds to allow reading of the date
 			msc_stop();
 			f_mount(fatfs,"",0); // mount file system
 			daq_init();
