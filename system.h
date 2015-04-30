@@ -8,7 +8,7 @@
 #include "log.h"
 #include "push_button.h"
 
-#define VERSION "1.0"
+#define VERSION "V1.0_DEMO"
 
 typedef enum {
 	STATE_IDLE,

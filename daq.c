@@ -254,18 +254,7 @@ void daq_record(){
 
 // Make the data file
 void daq_makeDataFile(void){
-	time_t t = Chip_RTC_GetCount(LPC_RTC);
-	struct tm * tm;
-	tm = localtime(&t);
-	char fn[40];
-	uint8_t fn_size = 0;
-	fn_size += strftime(fn,40,"%Y-%m-%d_%H-%M-%S_data",tm);
-	if(daq.data_type == READABLE){
-		strcat(fn+fn_size,".txt");
-	}else{
-		strcat(fn+fn_size,".dat");
-	}
-	f_open(&dataFile,fn,FA_CREATE_ALWAYS | FA_WRITE);
+	f_open(&dataFile,"data.txt",FA_CREATE_ALWAYS | FA_WRITE);
 }
 
 // Wait for the trigger time to start
