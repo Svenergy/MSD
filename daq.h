@@ -78,6 +78,8 @@ typedef struct DAQ {
 	char user_comment[101];	// User comment to appear at the top of each data file
 } DAQ;
 
+extern volatile uint32_t sampleCount;
+
 extern uint8_t rsel_pins[3];
 
 // Raw data buffer

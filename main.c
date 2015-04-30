@@ -32,6 +32,8 @@ BLUE = error
 #include "config.h"
 #include "log.h"
 
+#define DEMO_SAMPLE_COUNT 2000
+
 /* Size of the output file write buffer */
 #define RAW_BUFF_SIZE 0x4FFF // 0x5000 = 20kB, set 1 smaller for the extra byte required by the ring buffer
 
@@ -104,6 +106,19 @@ void SysTick_Handler(void){
 	case STATE_DAQ:
 		// Perform the current asynchronous daq action
 		daq_loop();
+
+		// If demo sampling is completed
+		if (sampleCount > DEMO_SAMPLE_COUNT){
+			Board_LED_Color(LED_PURPLE);
+			daq_stop();
+			f_mount(NULL,"",0); // unmount file system
+			msc_init();
+			DWT_Delay(10000000); // Delay 10 seconds to allow reading of the date
+			msc_stop();
+			f_mount(fatfs,"",0); // mount file system
+			daq_init();
+			Board_LED_Color(LED_GREEN);
+		}
 
 		// If user has short pressed PB to stop acquisition
 		if (pb_shortPress()){

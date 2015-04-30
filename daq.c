@@ -19,7 +19,7 @@ DAQ daq;
 void (*daq_loop)(void);
 
 // Time tracking
-static volatile uint32_t sampleCount; // Count of samples taken in the current recording, used for timing verification
+volatile uint32_t sampleCount; // Count of samples taken in the current recording, used for timing verification
 static uint32_t sampleStrfCount; // Count of samples string formatted in the current recording
 static volatile uint32_t dwt_lastTime; // Time of the last sample according to the DWT timer, used to measure sampling integral error and jitter
 static volatile uint64_t dwt_elapsedTime; // Total sampling elapsed time according to the DWT timer
