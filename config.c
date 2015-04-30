@@ -167,7 +167,7 @@ void readConfigFromFile(){
 
 			/* CH Zero Offset */
 			sscanf(line + countToColon(line), " %f", &fVal);
-			daq.channel[i].offset_uV = floatToFix(fVal);
+			daq.channel[i].offset_uV = floatToFix(fVal*1000000);
 		}
 
 		/* Read lines to get to update calibration */
@@ -189,7 +189,7 @@ void readConfigFromFile(){
 
 			/* 5V LSB/Volt */
 			sscanf(line + countToColon(line), " %f", &fVal);
-			daq.channel[i].v5_uV_per_LSB = floatToFix(fVal);
+			daq.channel[i].v5_uV_per_LSB = floatToFix(fVal*1000000);
 			getNonBlankLine(line,0);
 
 			/* 24V Zero Offset */
@@ -199,7 +199,7 @@ void readConfigFromFile(){
 
 			/* 24V LSB/Volt */
 			sscanf(line + countToColon(line), " %f", &fVal);
-			daq.channel[i].v24_uV_per_LSB = floatToFix(fVal);
+			daq.channel[i].v24_uV_per_LSB = floatToFix(fVal*1000000);
 		}
 	}
 	/* Close config file */
@@ -272,7 +272,7 @@ void writeConfigToFile() {
 		config_printf("UNITS [up to 8 chars]: ");
 		config_printf("%s\n", daq.channel[i].unit_name);
 		config_printf("UNITS PER VOLT   [fp]: ");
-		decFloatToStr(buf, &daq.channel[i].units_per_volt, 6);
+		fullDecFloatToStr(buf, &daq.channel[i].units_per_volt, 6);
 		config_printf("%s\n", buf);
 		config_printf("ZERO OFFSET      [fp]: ");
 		fixToStr(buf, &daq.channel[i].offset_uV, 6, -6);
@@ -288,13 +288,13 @@ void writeConfigToFile() {
 		config_printf("5V ZERO OFFSET  [fp]: ");
 		fixToStr(buf, &daq.channel[i].v5_zero_offset, 6, 0);
 		config_printf("%s\n", buf);
-		config_printf("5V LSB / VOLT   [fp]: ");
+		config_printf("5V VOLT / LSB   [fp]: ");
 		fixToStr(buf, &daq.channel[i].v5_uV_per_LSB, 6, -6);
 		config_printf("%s\n", buf);
 		config_printf("24V ZERO OFFSET [fp]: ");
 		fixToStr(buf, &daq.channel[i].v24_zero_offset, 6, 0);
 		config_printf("%s\n", buf);
-		config_printf("24V LSB / VOLT  [fp]: ");
+		config_printf("24V VOLT / LSB  [fp]: ");
 		fixToStr(buf, &daq.channel[i].v24_uV_per_LSB, 6, -6);
 		config_printf("%s\n\n", buf);
 	}
