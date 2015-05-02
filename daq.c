@@ -288,7 +288,7 @@ void daq_voutEnable(void){
 // Disable the output voltage
 void daq_voutDisable(void){
 	// Disable Vout using ~SHDN
-	Chip_GPIO_SetPinState(LPC_GPIO, 0, VOUT_N_SHDN, false);
+	//Chip_GPIO_SetPinState(LPC_GPIO, 0, VOUT_N_SHDN, false);
 }
 
 // Write data file header
