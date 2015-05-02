@@ -32,7 +32,7 @@ BLUE = error
 #include "config.h"
 #include "log.h"
 
-#define DEMO_SAMPLE_COUNT 2000
+#define DEMO_SAMPLE_COUNT 20000
 
 /* Size of the output file write buffer */
 #define RAW_BUFF_SIZE 0x4FFF // 0x5000 = 20kB, set 1 smaller for the extra byte required by the ring buffer
