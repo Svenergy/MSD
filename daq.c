@@ -30,9 +30,6 @@ static uint32_t rawValSum[MAX_CHAN]; // Raw sample values, summed over the numbe
 static uint32_t MRTCount; // Count of runs of the MRT1 timer interrupt
 static uint32_t subSampleCount; // Count of over samples
 
-// AC coupling
-
-
 // Vout raw value read from ADC
 static volatile uint16_t rawVout;
 
@@ -159,7 +156,7 @@ void daq_init(void){
 
 	// Set up channel ranges in hardware mux
 	int i;
-	for(i=0;i<3;i++){ // This Kills the UART
+	for(i=0;i<3;i++){
 		Chip_GPIO_SetPinDIROutput(LPC_GPIO, 0, rsel_pins[i]);
 		Chip_GPIO_SetPinState(LPC_GPIO, 0, rsel_pins[i], daq.channel[i].range);
 	}
