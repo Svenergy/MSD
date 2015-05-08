@@ -1,4 +1,5 @@
 #include "config.h"
+#include "console_converter.h"
 
 FIL config;
 
@@ -17,6 +18,19 @@ void configStart() {
 		readConfigDefault();
 		writeConfigToFile();
 		break;
+	default:
+		// Unknown file read error
+		error(ERROR_READ_CONFIG);
+	}
+
+	fr = f_stat("ConsoleConverter.exe", NULL);
+	switch (fr) {
+	case FR_OK:
+		// Converter file exists
+		break;
+	case FR_NO_FILE:
+		// Create exe file from binary
+		writeConverterToFile();
 	default:
 		// Unknown file read error
 		error(ERROR_READ_CONFIG);
@@ -301,6 +315,18 @@ void writeConfigToFile() {
 
 	/* Close config file */
 	f_close(&config);
+}
+
+void writeConverterToFile() {
+
+	FIL converter;
+	if (f_open(&converter, "ConsoleConverter.exe", FA_CREATE_ALWAYS | FA_WRITE) != FR_OK) {
+		error(ERROR_WRITE_CONFIG);
+	}
+
+	uint32_t writtenBytes = 0;
+	f_write(&converter, consoleConverterBinary, 37888, &writtenBytes);
+
 }
 
 // Set the current time given a time string in the format
