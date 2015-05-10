@@ -95,7 +95,7 @@ void RIT_IRQHandler(void){
 					rawVal[ch++] = (uint16_t) (rawValSum[i] / daq.subsamples);
 				}
 			}
-			RingBuffer_writeData(rawBuff, &rawVal, 2*daq.channel_count); // 16 bit samples = 2bytes/sample
+			RingBuffer_writeData(rawBuff, rawVal, 2*daq.channel_count); // 16 bit samples = 2bytes/sample
 		}
 		subSampleCount = 0;
 	}
@@ -163,6 +163,7 @@ void daq_init(void){
 
 	// Clear the raw data buffer
 	RingBuffer_clear(rawBuff);
+	ramBuffer_init();
 
 	// Initialize the string formatted buffer if in readable mode
 	if(daq.data_type == READABLE){
@@ -412,9 +413,25 @@ void daq_stop(void){
 	RingBuffer_destroy(strBuff);
 }
 
+// Move data from the internal ram buffer to external ram
+void daq_toExtRam(void){
+	//putLineUART("move\n");
+	//while(~LPC_SPI0->STAT & SPI_STAT_TXRDY){};
+	//LPC_SPI0->TXDATCTL = SPI_TXDATCTL_LEN(8-1) | SPI_TXCTL_DEASSERT_SSEL0 | SPI_TXCTL_DEASSERT_SSEL1 | SPI_TXCTL_RXIGNORE;
+
+	// Only move data if a full block is ready, and the external buffer is not going to overflow
+	if (RingBuffer_getSize(rawBuff) >= BLOCK_SIZE && ramBuffer_getSize() < (RAM_BUFF_SIZE - BLOCK_SIZE)){
+		//Need to transfer between buffers using an intermediate memory location
+		uint8_t data[BLOCK_SIZE];
+		RingBuffer_read(rawBuff, data, BLOCK_SIZE);
+		ramBuffer_write(data, BLOCK_SIZE);
+	}
+}
+
 // Write data from raw buffer to file, formatting to string  buffer as an intermediate step if needed
 void daq_writeData(void){
 	while(true){
+		daq_toExtRam();
 
 		// Generate a block of file data, or return if a block cannot be made
 		switch (daq.data_type){
@@ -422,7 +439,8 @@ void daq_writeData(void){
 
 			while(RingBuffer_getSize(strBuff) < BLOCK_SIZE){
 				uint16_t rawData[MAX_CHAN];
-				if(RingBuffer_read(rawBuff, rawData, daq.channel_count*2) == daq.channel_count*2){
+				if(ramBuffer_getSize() >= daq.channel_count*2){
+					ramBuffer_read(rawData, daq.channel_count*2);
 					// Format data into string
 					char sampleStr[SAMPLE_STR_SIZE];
 					daq_readableFormat(rawData, sampleStr);
@@ -434,16 +452,16 @@ void daq_writeData(void){
 					return; // No more raw data, finished processing
 				}
 			}
-			char data[BLOCK_SIZE];
+			uint8_t data[BLOCK_SIZE];
 			RingBuffer_read(strBuff, data, BLOCK_SIZE);
 			daq_writeBlock(data, BLOCK_SIZE);
 
 			break;
 		case BINARY:
 
-			if(RingBuffer_getSize(rawBuff) >= BLOCK_SIZE){
+			if(ramBuffer_getSize() >= BLOCK_SIZE){
 				char data[BLOCK_SIZE];
-				RingBuffer_read(rawBuff, data, BLOCK_SIZE);
+				ramBuffer_read(data, BLOCK_SIZE);
 				daq_writeBlock(data, BLOCK_SIZE);
 			} else {
 				return;
@@ -468,7 +486,7 @@ void daq_flushData(void){
 		br = RingBuffer_read(strBuff, data, BLOCK_SIZE);
 		break;
 	case BINARY:
-		br = RingBuffer_read(rawBuff, data, BLOCK_SIZE);
+		br = ramBuffer_read(data, BLOCK_SIZE);
 		break;
 	}
 	daq_writeBlock(data, br);
@@ -480,6 +498,10 @@ void daq_writeBlock(void *data, int32_t data_size){
 	FRESULT errorCode;
 	Board_LED_Color(LED_YELLOW);
 	if((errorCode = f_write(&dataFile, data, data_size, &bw)) != FR_OK){
+
+		char buf[32];
+		sprintf(buf,"F_write_error = %d\n",errorCode);
+		putLineUART(buf);
 		error(ERROR_F_WRITE);
 	}
 	Board_LED_Color(LED_RED);

@@ -10,10 +10,14 @@
 #ifndef _SD_SPI_H_
 #define _SD_SPI_H_
 
+#include <stdint.h>
+
 #include "delay.h"
 #include "board.h"
+//#include "daq.h"
 
-#include <stdint.h>
+// including daq breaks things, so just extern the function we need
+extern void daq_toExtRam(void);
 
 #define SD_BLOCKSIZE 512
 #define SD_BLOCKSIZE_NBITS 9
@@ -204,7 +208,7 @@ SD_ERROR sd_reset(SD_CardInfo *cardinfo);
 uint8_t sd_read_block(uint32_t blockaddr,uint8_t *data);
 uint8_t sd_read_multiple_blocks(uint32_t blockaddr, uint32_t blockcount, uint8_t *data);
 uint8_t sd_write_block(uint32_t blockaddr, const uint8_t *data);
-uint8_t sd_write_multiple_blocks(uint32_t blockaddr, uint32_t blockcount, const uint8_t *data);
+//uint8_t sd_write_multiple_blocks(uint32_t blockaddr, uint32_t blockcount, const uint8_t *data);
 SD_ERROR sd_read_cid(SD_CID *sd_cid,CARD_TYPE ct);
 SD_ERROR sd_read_csd(SD_CSD *sd_csd,CARD_TYPE ct);
 

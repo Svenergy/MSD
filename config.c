@@ -230,7 +230,7 @@ void writeConfigToFile() {
 	struct tm * tm;
 	tm = localtime(&t);
 	strftime(buf, LINE_SIZE, "%Y-%m-%d %H:%M:%S", tm);
-	config_printf("%s\n\n\n", buf);
+	config_printf("%s\n\n", buf);
 
 	/**** CONFIG ****/
 	config_printf("**** UPDATE CONFIG [Y/N] ****\n");

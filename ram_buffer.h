@@ -32,4 +32,7 @@ void ramBuffer_write(void *data, uint32_t count);
 // Read count bytes from the ram buffer into data
 uint32_t ramBuffer_read(void *data, uint32_t count);
 
+// Return the size of the current data in the buffer
+uint32_t ramBuffer_getSize(void);
+
 #endif /* RAM_BUFFER_H_ */

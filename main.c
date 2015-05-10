@@ -27,6 +27,7 @@ BLUE = error
 #include "push_button.h"
 #include "ff.h"
 #include "ring_buff.h"
+#include "ram_buffer.h"
 #include "sys_error.h"
 #include "system.h"
 #include "config.h"
@@ -177,6 +178,10 @@ int main(void) {
 	putLineUART("\n");
 #endif
 
+	// Initialize ring buffer used to buffer raw data samples
+	rawBuff = RingBuffer_initWithBuffer(RAW_BUFF_SIZE, RAM1_BASE);
+	ramBuffer_init();
+
 	// Enable EEPROM clock and reset EEPROM controller
 	Chip_Clock_EnablePeriphClock(SYSCTL_CLOCK_EEPROM);
 	Chip_SYSCTL_PeriphReset(RESET_EEPROM);
@@ -208,9 +213,6 @@ int main(void) {
 
 	// Set up ADC for reading battery voltage
 	read_vBat_setup();
-
-	// Initialize ring buffer used to buffer raw data samples
-	rawBuff = RingBuffer_initWithBuffer(RAW_BUFF_SIZE, RAM1_BASE);
 
 	// Set up MRT used by pb and daq
 	Chip_MRT_Init();

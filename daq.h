@@ -14,6 +14,7 @@
 #include "log.h"
 #include "fixed.h"
 #include "config.h"
+#include "ram_buffer.h"
 
 #define SYS_CLOCK_RATE 72000000 // System clock rate in Hz
 
@@ -121,6 +122,9 @@ void daq_header(void);
 
 // Stop acquiring data
 void daq_stop(void);
+
+// Move data from the internal ram buffer to external ram
+void daq_toExtRam(void);
 
 // Write data from raw buffer to file, formatting to string  buffer as an intermediate step if needed
 void daq_writeData(void);
