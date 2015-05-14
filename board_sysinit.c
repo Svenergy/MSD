@@ -75,10 +75,13 @@ STATIC const PINMUX_GRP_T ioconSetup[] = {
 	{0, ADC_MISO, (IOCON_MODE_PULLUP | IOCON_DIGMODE_EN)},		/* PIO0_2 */
 
 	/* RAM buffer / SD card SPI */
-	{0, SD_SPI_CLK,  (IOCON_MODE_PULLDOWN | IOCON_DIGMODE_EN)},	/* PIO0_18 */
+	{0, SD_SPI_CLK,  (IOCON_MODE_PULLUP | IOCON_DIGMODE_EN)},	/* PIO0_3 */
 	{0, SD_SPI_MOSI, (IOCON_MODE_PULLUP | IOCON_DIGMODE_EN)},	/* PIO0_10 */
-	{0, SD_SPI_MISO, (IOCON_MODE_PULLUP | IOCON_DIGMODE_EN)},	/* PIO0_9 */
+	{0, SD_SPI_MISO, (IOCON_STDI2C_EN | IOCON_DIGMODE_EN)},		/* PIO0_23 */
 	{0, SD_SPI_CS,   (IOCON_MODE_PULLUP | IOCON_DIGMODE_EN)},	/* PIO0_11 */
+
+	{0, RAM_SPI_MISO, (IOCON_MODE_PULLUP | IOCON_DIGMODE_EN)},	/* PIO0_9 */
+	{0, RAM_SPI_CLK, (IOCON_MODE_PULLDOWN | IOCON_DIGMODE_EN)},	/* PIO0_18 */
 	{0, RAM_SPI_CS,  (IOCON_MODE_PULLUP | IOCON_DIGMODE_EN)},	/* PIO0_13 */
 
 	/* SD card control */
@@ -103,9 +106,10 @@ STATIC const SWM_GRP_T swmSetup[] = {
 	{(uint16_t) SWM_USB_VBUS_I, 0, VBUS},				/* PIO0_16-ISP_1 */
 
 	/* RAM buffer / SD card SPI */
-	{(uint16_t) SWM_SPI0_SCK_IO, 0, SD_SPI_CLK},		/* PIO0_18 */
+	/* Initialized to connect to SD card, MISO and CLK must be moved to connect to RAM */
+	{(uint16_t) SWM_SPI0_SCK_IO, 0, SD_SPI_CLK},		/* PIO0_3 */
 	{(uint16_t) SWM_SPI0_MOSI_IO, 0, SD_SPI_MOSI},		/* PIO0_10 */
-	{(uint16_t) SWM_SPI0_MISO_IO, 0, SD_SPI_MISO},		/* PIO0_9 */
+	{(uint16_t) SWM_SPI0_MISO_IO, 0, SD_SPI_MISO},		/* PIO0_23 */
 	{(uint16_t) SWM_SPI0_SSELSN_0_IO, 0, SD_SPI_CS},	/* PIO0_11 */
 	{(uint16_t) SWM_SPI0_SSELSN_1_IO, 0, RAM_SPI_CS},	/* PIO0_13 */
 

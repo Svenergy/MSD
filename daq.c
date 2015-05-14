@@ -415,17 +415,21 @@ void daq_stop(void){
 
 // Move data from the internal ram buffer to external ram
 void daq_toExtRam(void){
-	//putLineUART("move\n");
-	//while(~LPC_SPI0->STAT & SPI_STAT_TXRDY){};
-	//LPC_SPI0->TXDATCTL = SPI_TXDATCTL_LEN(8-1) | SPI_TXCTL_DEASSERT_SSEL0 | SPI_TXCTL_DEASSERT_SSEL1 | SPI_TXCTL_RXIGNORE;
+	// Switch SPI clock and MISO pins to RAM buffer
+	Chip_SWM_MovablePortPinAssign(SWM_SPI0_SCK_IO, 0, RAM_SPI_CLK);
+	Chip_SWM_MovablePortPinAssign(SWM_SPI0_MISO_IO, 0, RAM_SPI_MISO);
 
 	// Only move data if a full block is ready, and the external buffer is not going to overflow
 	if (RingBuffer_getSize(rawBuff) >= BLOCK_SIZE && ramBuffer_getSize() < (RAM_BUFF_SIZE - BLOCK_SIZE)){
-		//Need to transfer between buffers using an intermediate memory location
+		// Need to transfer between buffers using an intermediate memory location
 		uint8_t data[BLOCK_SIZE];
 		RingBuffer_read(rawBuff, data, BLOCK_SIZE);
 		ramBuffer_write(data, BLOCK_SIZE);
 	}
+
+	// Switch SPI clock and MISO pins back SD
+	Chip_SWM_MovablePortPinAssign(SWM_SPI0_SCK_IO, 0, SD_SPI_CLK);
+	Chip_SWM_MovablePortPinAssign(SWM_SPI0_MISO_IO, 0, SD_SPI_MISO);
 }
 
 // Write data from raw buffer to file, formatting to string  buffer as an intermediate step if needed

@@ -469,8 +469,10 @@ uint8_t sd_write_block (uint32_t blockaddr, const uint8_t *data) {
   uint32_t i;
   uint8_t tmp;
 
-  // wait for card not busy
-  while(SPI_ReadByte()==0){}
+  // Wait for card not busy, and transfer buffered data to external ram if waiting
+  while(SPI_ReadByte()==0){
+	  daq_toExtRam();
+  }
 
   // convert to block address
   if(cardinfo.CardType!=SD_CARD_HIGH_CAPACITY) {

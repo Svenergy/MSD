@@ -193,9 +193,13 @@ int main(void) {
 	// Set up the FatFS Object
 	f_mount(fatfs,"",0);
 
-	// Initialize SD card
+	// Initialize SD card, try up to 10 times before giving up
 	Board_LED_Color(LED_CYAN);
-	if(sd_reset(&cardinfo) != SD_OK) {
+	int i = 0;
+	while(i<10 && sd_reset(&cardinfo) != SD_OK){
+		i++;
+	}
+	if(i == 10) {
 		error(ERROR_SD_INIT);
 	}
 	sd_state = SD_READY;
@@ -208,11 +212,13 @@ int main(void) {
 	// Allow MSC mode on startup
 	msc_state = MSC_ENABLED;
 
-	// Log startup
-	log_string("Startup");
-
 	// Set up ADC for reading battery voltage
 	read_vBat_setup();
+
+	// Log startup and battery voltage
+	char start_str[32];
+	sprintf(start_str, "Startup, VBatt = %.2f", read_vBat(10));
+	log_string(start_str);
 
 	// Set up MRT used by pb and daq
 	Chip_MRT_Init();

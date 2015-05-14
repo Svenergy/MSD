@@ -66,11 +66,13 @@ typedef enum {
 #define ADC_SCK  1
 
 // RAM buffer / SD card SPI
-#define SD_SPI_CLK  18
-#define SD_SPI_MOSI 10
-#define SD_SPI_MISO 9
-
+#define SD_SPI_CLK  3
+#define SD_SPI_MOSI 10 // Shared between RAM and SD
+#define SD_SPI_MISO 23
 #define SD_SPI_CS   11
+
+#define RAM_SPI_MISO 9
+#define RAM_SPI_CLK  18
 #define RAM_SPI_CS   13
 
 // SD card control

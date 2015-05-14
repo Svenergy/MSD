@@ -34,8 +34,11 @@ void system_halt(void){
 
 // Turn off system power
 void system_power_off(void){
-	// Log shutdown event
-	log_string("Shutdown");
+	// Log shutdown and battery voltage
+	char shut_str[32];
+	sprintf(shut_str, "Shutdown, VBatt = %.2f", read_vBat(10));
+	log_string(shut_str);
+
 #ifdef DEBUG
 	// Wait for UART to finish transmission
 	while ( !(Chip_UART_GetStatus(LPC_USART0)&UART_STAT_TXIDLE) ){};
