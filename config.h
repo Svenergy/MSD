@@ -32,6 +32,8 @@ void readConfigFromFile(void);
 
 void writeConfigToFile(void);
 
+void writeConverterToFile(void);
+
 void setTime(char *timeStr);
 
 char *getTimeStr(void);
