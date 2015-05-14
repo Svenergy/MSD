@@ -203,6 +203,7 @@ typedef struct
   CARD_TYPE CardType;
 } SD_CardInfo;
 
+void setupSpiMaster(uint8_t clkdiv);
 SD_ERROR init_sd_spi(SD_CardInfo *cardinfo);
 SD_ERROR sd_reset(SD_CardInfo *cardinfo);
 uint8_t sd_read_block(uint32_t blockaddr,uint8_t *data);

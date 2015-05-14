@@ -415,10 +415,6 @@ void daq_stop(void){
 
 // Move data from the internal ram buffer to external ram
 void daq_toExtRam(void){
-	// Switch SPI clock and MISO pins to RAM buffer
-	Chip_SWM_MovablePortPinAssign(SWM_SPI0_SCK_IO, 0, RAM_SPI_CLK);
-	Chip_SWM_MovablePortPinAssign(SWM_SPI0_MISO_IO, 0, RAM_SPI_MISO);
-
 	// Only move data if a full block is ready, and the external buffer is not going to overflow
 	if (RingBuffer_getSize(rawBuff) >= BLOCK_SIZE && ramBuffer_getSize() < (RAM_BUFF_SIZE - BLOCK_SIZE)){
 		// Need to transfer between buffers using an intermediate memory location
@@ -426,15 +422,13 @@ void daq_toExtRam(void){
 		RingBuffer_read(rawBuff, data, BLOCK_SIZE);
 		ramBuffer_write(data, BLOCK_SIZE);
 	}
-
-	// Switch SPI clock and MISO pins back SD
-	Chip_SWM_MovablePortPinAssign(SWM_SPI0_SCK_IO, 0, SD_SPI_CLK);
-	Chip_SWM_MovablePortPinAssign(SWM_SPI0_MISO_IO, 0, SD_SPI_MISO);
 }
 
 // Write data from raw buffer to file, formatting to string  buffer as an intermediate step if needed
-void daq_writeData(void){
-	while(true){
+DATA_AVAILABLE_T daq_writeData(void){
+	uint32_t i;
+	// Only write 10 blocks per systick interval at most
+	for(i=0;i<10;i++){
 		daq_toExtRam();
 
 		// Generate a block of file data, or return if a block cannot be made
@@ -453,7 +447,7 @@ void daq_writeData(void){
 					putLineUART(sampleStr);
 #endif
 				} else {
-					return; // No more raw data, finished processing
+					return NO_DATA_READY; // No more raw data, finished processing
 				}
 			}
 			uint8_t data[BLOCK_SIZE];
@@ -468,19 +462,20 @@ void daq_writeData(void){
 				ramBuffer_read(data, BLOCK_SIZE);
 				daq_writeBlock(data, BLOCK_SIZE);
 			} else {
-				return;
+				return NO_DATA_READY;
 			}
 
 			break;
 		}
 
 	}
+	return DATA_AVAILABLE;
 }
 
 // Flush data from raw buffer to file, formatting to string  buffer as an intermediate step if needed
 void daq_flushData(void){
 	// Write full blocks of data to the file
-	daq_writeData();
+	while(daq_writeData() == DATA_AVAILABLE){}
 
 	// Flush remaining partial block
 	char data[BLOCK_SIZE];

@@ -16,7 +16,7 @@ extern SD_CardInfo cardinfo;
 
 uint8_t response[5];
 
-static void setupSpiMaster(uint8_t clkdiv) {
+void setupSpiMaster(uint8_t clkdiv) {
   SPI_CFG_T spiCfg;
   SPI_DELAY_CONFIG_T spiDelayCfg;
   

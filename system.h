@@ -10,6 +10,12 @@
 
 #define VERSION "2.0"
 
+#define VBAT_LOW 3.25 // Low battery indicator voltage
+#define VBAT_SHUTDOWN 3.0 // Low battery shut down voltage
+
+#define TICKRATE_HZ1 (100)	// 100 ticks per second
+#define TIMEOUT_SECS (300)	// Shut down after X seconds in Idle
+
 typedef enum {
 	STATE_IDLE,
 	STATE_MSC,
@@ -29,6 +35,11 @@ typedef enum {
 extern SYSTEM_STATE system_state;
 extern SD_STATE sd_state;
 extern MSC_STATE msc_state;
+
+extern uint32_t enterIdleTime;
+
+// Systick loop
+void SysTick_Handler(void);
 
 // Halt and power off
 void shutdown(void);

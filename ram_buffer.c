@@ -87,14 +87,22 @@ void ramBuffer_write(void *data, uint32_t count){
 		error(ERROR_BUF_OVF);
 	}
 
+	// Switch SPI clock and MISO pins to RAM buffer
+	Chip_SWM_MovablePortPinAssign(SWM_SPI0_SCK_IO, 0, RAM_SPI_CLK);
+	Chip_SWM_MovablePortPinAssign(SWM_SPI0_MISO_IO, 0, RAM_SPI_MISO);
+
 	// Copy the data into the ring buffer
 	if(end + count > length){
 		int32_t partLen = length - end;
-		//SPI_WriteBytes(data, end, partLen);
-		//SPI_WriteBytes(data + partLen, 0, count-partLen);
+		SPI_WriteBytes(data, end, partLen);
+		SPI_WriteBytes(data + partLen, 0, count-partLen);
 	}else{
-		//SPI_WriteBytes(data, end, count);
+		SPI_WriteBytes(data, end, count);
 	}
+
+	// Switch SPI clock and MISO pins back SD
+	Chip_SWM_MovablePortPinAssign(SWM_SPI0_SCK_IO, 0, SD_SPI_CLK);
+	Chip_SWM_MovablePortPinAssign(SWM_SPI0_MISO_IO, 0, SD_SPI_MISO);
 
 	// Move the end
 	end = (end + count) % length;
@@ -111,18 +119,26 @@ uint32_t ramBuffer_read(void *data, uint32_t count){
 		rend = (start + count) % length; // if count < available data, read count
 	}
 
+	// Switch SPI clock and MISO pins to RAM buffer
+	Chip_SWM_MovablePortPinAssign(SWM_SPI0_SCK_IO, 0, RAM_SPI_CLK);
+	Chip_SWM_MovablePortPinAssign(SWM_SPI0_MISO_IO, 0, RAM_SPI_MISO);
+
 	// Copy data
 	if(rend == start){
 		br = 0;
 	}else if(rend > start){
 		br = rend - start;
-		//SPI_ReadBytes(data, start, br);
+		SPI_ReadBytes(data, start, br);
 	}else{
 		br = length - start;
-		//SPI_ReadBytes(data, start, br);
-		//SPI_ReadBytes(data + br, 0, rend);
+		SPI_ReadBytes(data, start, br);
+		SPI_ReadBytes(data + br, 0, rend);
 		br = rend + length - start;
 	}
+
+	// Switch SPI clock and MISO pins back SD
+	Chip_SWM_MovablePortPinAssign(SWM_SPI0_SCK_IO, 0, SD_SPI_CLK);
+	Chip_SWM_MovablePortPinAssign(SWM_SPI0_MISO_IO, 0, SD_SPI_MISO);
 
 	// Move start to end
 	start = rend;

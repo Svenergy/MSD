@@ -15,6 +15,7 @@
 #include "fixed.h"
 #include "config.h"
 #include "ram_buffer.h"
+#include "system.h"
 
 #define SYS_CLOCK_RATE 72000000 // System clock rate in Hz
 
@@ -33,6 +34,12 @@
 #define SAMPLE_STR_SIZE 60 // Maximum size of a single sample string
 
 #define clamp(amt,low,high) ((amt)<(low)?(low):((amt)>(high)?(high):(amt)))
+
+// Returned from daq write
+typedef enum {
+	NO_DATA_READY,
+	DATA_AVAILABLE,
+} DATA_AVAILABLE_T;
 
 // Voltage range type
 typedef enum {
@@ -127,7 +134,7 @@ void daq_stop(void);
 void daq_toExtRam(void);
 
 // Write data from raw buffer to file, formatting to string  buffer as an intermediate step if needed
-void daq_writeData(void);
+DATA_AVAILABLE_T daq_writeData(void);
 
 // Flush data from raw buffer to file, formatting to string  buffer as an intermediate step if needed
 void daq_flushData(void);

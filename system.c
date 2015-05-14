@@ -4,6 +4,123 @@ SYSTEM_STATE system_state;
 SD_STATE sd_state;
 MSC_STATE msc_state;
 
+void SysTick_Handler(void){
+	static bool lowBat; // Set when battery voltage drops below VBAT_LOW
+	static uint32_t sysTickCounter;
+
+	sysTickCounter++; // Used to schedule less frequent tasks
+
+	switch(system_state){
+	case STATE_IDLE:
+		// Enable USB if VBUS is disconnected
+		;bool vBus = Chip_GPIO_GetPinState(LPC_GPIO, 0, VBUS);
+		if(!vBus){
+			msc_state = MSC_ENABLED;
+		}
+		// If MSC enabled, VBUS is connected, and SD card is ready, try to connect as MSC
+		if (msc_state == MSC_ENABLED && vBus && sd_state == SD_READY){
+			f_mount(NULL,"",0); // unmount file system
+			if (msc_init() == MSC_OK){
+				Board_LED_Color(LED_YELLOW);
+				system_state = STATE_MSC;
+				break;
+			}else{ // Error on MSC initialization
+				error(ERROR_MSC_INIT);
+			}
+		}
+		// If user has short pressed PB and SD card is ready, initiate acquisition
+		if (pb_shortPress() && sd_state == SD_READY){
+			daq_init();
+			system_state = STATE_DAQ;
+			break;
+		}
+
+		// Blink LED if in low battery state, otherwise solid green
+		if (lowBat && sysTickCounter % TICKRATE_HZ1 < TICKRATE_HZ1/2){
+			Board_LED_Color(LED_OFF);
+		} else {
+			Board_LED_Color(LED_GREEN);
+		}
+		break;
+	case STATE_MSC:
+		// If VBUS is disconnected or button is short pressed
+		;bool pb;
+		if (Chip_GPIO_GetPinState(LPC_GPIO, 0, VBUS) == 0 || (pb = pb_shortPress())){
+			if(pb){
+				msc_state = MSC_DISABLED;
+			}
+			msc_stop();
+			f_mount(fatfs,"",0); // mount file system
+			Board_LED_Color(LED_GREEN);
+			system_state = STATE_IDLE;
+			enterIdleTime = Chip_RTC_GetCount(LPC_RTC);
+		}
+		break;
+	case STATE_DAQ:
+		// Perform the current asynchronous daq action
+		daq_loop();
+
+		// If user has short pressed PB to stop acquisition
+		if (pb_shortPress()){
+			Board_LED_Color(LED_PURPLE);
+			daq_stop();
+			Board_LED_Color(LED_GREEN);
+			system_state = STATE_IDLE;
+			enterIdleTime = Chip_RTC_GetCount(LPC_RTC);
+		}
+		break;
+	}
+
+	// Initialize SD card after every insertion
+	if (Chip_GPIO_GetPinState(LPC_GPIO, 0, CARD_DETECT)){
+		// Card out
+		Board_LED_Color(LED_CYAN);
+		sd_state = SD_OUT;
+	}else{
+		// Card in
+		if (sd_state == SD_OUT){
+			// Delay 100ms to let connections and power stabilize
+			DWT_Delay(100000);
+			if(init_sd_spi(&cardinfo) != SD_OK) {
+				error(ERROR_SD_INIT);
+			}
+			switch(system_state){
+			case STATE_IDLE:
+				Board_LED_Color(LED_GREEN);
+				break;
+			case STATE_MSC:
+				Board_LED_Color(LED_YELLOW);
+				break;
+			case STATE_DAQ:
+				Board_LED_Color(LED_RED);
+				break;
+			}
+			sd_state = SD_READY;
+		}
+	}
+
+	/* Run once per second */
+	if(sysTickCounter % TICKRATE_HZ1 == 0){
+		float vBat = read_vBat(10);
+		lowBat = vBat < VBAT_LOW ? true : false; // Set low battery state
+		if (vBat < VBAT_SHUTDOWN){
+			shutdown_message("Low Battery");
+		}
+
+		if ((Chip_RTC_GetCount(LPC_RTC) - enterIdleTime > TIMEOUT_SECS && system_state == STATE_IDLE) ){
+			shutdown_message("Idle Time Out");
+		}
+	}
+
+	/* Shut down conditions */
+	if (pb_longPress()){
+		shutdown_message("Power Button Pressed");
+	}
+
+	/* Handle errors */
+	error_handler();
+}
+
 // Halt and power off
 void shutdown(void){
 	system_halt();
