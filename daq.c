@@ -179,7 +179,7 @@ void daq_init(void){
 	buttonTime = Chip_RTC_GetCount(LPC_RTC);
 
 	// Set loop to wait for trigger delay to expire
-	daq_loop = daq_triggerDelay;
+	daq_loop = daq_triggerDelayLoop;
 
 	// Start interrupts to stabilize vout, but do not record data
 	recordData = false;
@@ -242,7 +242,7 @@ void daq_record(){
 	daq_header();
 
 	// Set loop to write data from buffer to file
-	daq_loop = daq_writeData;
+	daq_loop = daq_acquiringLoop;
 
 	// Begin recording data in RIT interrupt
 	recordData = true;
@@ -265,7 +265,7 @@ void daq_makeDataFile(void){
 }
 
 // Wait for the trigger time to start
-void daq_triggerDelay(void){
+void daq_triggerDelayLoop(void){
 	// Wait for the Trigger Delay to expire
 	if( (int32_t)(Chip_RTC_GetCount(LPC_RTC) - buttonTime) >= daq.trigger_delay){
 		// Start acquiring data
@@ -401,7 +401,7 @@ void daq_stop(void){
 
 	log_string("Acquisition Stop");
 
-	if(daq_loop == daq_writeData){ // If data has been written
+	if(daq_loop == daq_acquiringLoop){ // If data has been written
 		// Flush data buffer to disk
 		daq_flushData();
 
@@ -424,11 +424,16 @@ void daq_toExtRam(void){
 	}
 }
 
-// Write data from raw buffer to file, formatting to string  buffer as an intermediate step if needed
-DATA_AVAILABLE_T daq_writeData(void){
-	uint32_t i;
+// Systick data acquisition loop
+void daq_acquiringLoop(void){
 	// Only write 10 blocks per systick interval at most
-	for(i=0;i<10;i++){
+	daq_writeData(10);
+}
+
+// Write data from raw buffer to file, formatting to string buffer as an intermediate step if needed
+DATA_AVAILABLE_T daq_writeData(uint32_t max_blocks){
+	uint32_t i;
+	for(i=0;i<max_blocks;i++){
 		daq_toExtRam();
 
 		// Generate a block of file data, or return if a block cannot be made
@@ -472,10 +477,10 @@ DATA_AVAILABLE_T daq_writeData(void){
 	return DATA_AVAILABLE;
 }
 
-// Flush data from raw buffer to file, formatting to string  buffer as an intermediate step if needed
+// Flush data from raw buffer to file, formatting to string buffer as an intermediate step if needed
 void daq_flushData(void){
 	// Write full blocks of data to the file
-	while(daq_writeData() == DATA_AVAILABLE){}
+	while(daq_writeData(1) == DATA_AVAILABLE){}
 
 	// Flush remaining partial block
 	char data[BLOCK_SIZE];

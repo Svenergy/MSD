@@ -100,6 +100,12 @@ extern DAQ daq;
 // DAQ loop function
 extern void (*daq_loop)(void);
 
+// Systick data acquisition loop
+void daq_acquiringLoop(void);
+
+// Systick waiting for trigger delay loop
+void daq_triggerDelayLoop(void);
+
 // ADC sample timing interrupt, called from main MRT interrupt in system
 void MRT1_IRQHandler(void);
 
@@ -114,9 +120,6 @@ void daq_record(void);
 
 // Make the data file
 void daq_makeDataFile(void);
-
-// Wait for the trigger time to start
-void daq_triggerDelay(void);
 
 // Enable the output voltage
 void daq_voutEnable(void);
@@ -133,10 +136,10 @@ void daq_stop(void);
 // Move data from the internal ram buffer to external ram
 void daq_toExtRam(void);
 
-// Write data from raw buffer to file, formatting to string  buffer as an intermediate step if needed
-DATA_AVAILABLE_T daq_writeData(void);
+// Write data from raw buffer to file, formatting to string buffer as an intermediate step if needed
+DATA_AVAILABLE_T daq_writeData(uint32_t max_blocks);
 
-// Flush data from raw buffer to file, formatting to string  buffer as an intermediate step if needed
+// Flush data from raw buffer to file, formatting to string buffer as an intermediate step if needed
 void daq_flushData(void);
 
 // Write a single block to the data file from the string buffer
