@@ -23,7 +23,7 @@ void configStart() {
 		error(ERROR_READ_CONFIG);
 	}
 
-	fr = f_stat("ConsoleConverter.exe", NULL);
+	fr = f_stat(converter_fn, NULL);
 	switch (fr) {
 	case FR_OK:
 		// Converter file exists
@@ -31,8 +31,10 @@ void configStart() {
 	case FR_NO_FILE:
 		// Create exe file from binary
 		writeConverterToFile();
+		break;
 	default:
 		// Unknown file read error
+		f_unlink(converter_fn);
 		error(ERROR_READ_CONFIG);
 	}
 
@@ -318,15 +320,20 @@ void writeConfigToFile() {
 }
 
 void writeConverterToFile() {
-
 	FIL converter;
-	if (f_open(&converter, "ConsoleConverter.exe", FA_CREATE_ALWAYS | FA_WRITE) != FR_OK) {
+	if (f_open(&converter, converter_fn, FA_CREATE_ALWAYS | FA_WRITE) != FR_OK) {
+		f_unlink(converter_fn);
 		error(ERROR_WRITE_CONFIG);
 	}
 
-	uint32_t writtenBytes = 0;
-	f_write(&converter, consoleConverterBinary, 37888, &writtenBytes);
+	uint32_t writtenBytes;
+	f_write(&converter, consoleConverterBinary, sizeof(consoleConverterBinary), &writtenBytes);
+	f_close(&converter);
 
+	if(writtenBytes != sizeof(consoleConverterBinary)){
+		f_unlink(converter_fn);
+		error(ERROR_WRITE_CONFIG);
+	}
 }
 
 // Set the current time given a time string in the format
