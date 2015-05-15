@@ -497,10 +497,6 @@ void daq_writeBlock(void *data, int32_t data_size){
 	FRESULT errorCode;
 	Board_LED_Color(LED_YELLOW);
 	if((errorCode = f_write(&dataFile, data, data_size, &bw)) != FR_OK){
-
-		char buf[32];
-		sprintf(buf,"F_write_error = %d\n",errorCode);
-		putLineUART(buf);
 		error(ERROR_F_WRITE);
 	}
 	Board_LED_Color(LED_RED);
