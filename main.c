@@ -112,6 +112,7 @@ void SysTick_Handler(void){
 			Board_LED_Color(LED_GREEN);
 			system_state = STATE_IDLE;
 			enterIdleTime = Chip_RTC_GetCount(LPC_RTC);
+			msc_state = MSC_DISABLED;
 		}
 		break;
 	}
