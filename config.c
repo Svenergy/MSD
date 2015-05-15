@@ -23,7 +23,7 @@ void configStart() {
 		error(ERROR_READ_CONFIG);
 	}
 
-	fr = f_stat(converter_fn, NULL);
+	fr = f_stat(converterFn, NULL);
 	switch (fr) {
 	case FR_OK:
 		// Converter file exists
@@ -34,7 +34,21 @@ void configStart() {
 		break;
 	default:
 		// Unknown file read error
-		f_unlink(converter_fn);
+		f_unlink(converterFn);
+		error(ERROR_READ_CONFIG);
+	}
+
+	fr = f_stat(userGuideFn, NULL);
+	switch (fr) {
+	case FR_OK:
+		// User Guide file exists
+		break;
+	case FR_NO_FILE:
+		writeUserGuideToFile();
+		break;
+	default:
+		// Unknown file read error
+		f_unlink(userGuideFn);
 		error(ERROR_READ_CONFIG);
 	}
 
@@ -321,8 +335,8 @@ void writeConfigToFile() {
 
 void writeConverterToFile() {
 	FIL converter;
-	if (f_open(&converter, converter_fn, FA_CREATE_ALWAYS | FA_WRITE) != FR_OK) {
-		f_unlink(converter_fn);
+	if (f_open(&converter, converterFn, FA_CREATE_ALWAYS | FA_WRITE) != FR_OK) {
+		f_unlink(converterFn);
 		error(ERROR_WRITE_CONFIG);
 	}
 
@@ -331,7 +345,24 @@ void writeConverterToFile() {
 	f_close(&converter);
 
 	if(writtenBytes != sizeof(consoleConverterBinary)){
-		f_unlink(converter_fn);
+		f_unlink(converterFn);
+		error(ERROR_WRITE_CONFIG);
+	}
+}
+
+void writeUserGuideToFile() {
+	FIL userGuide;
+	if (f_open(&userGuide, userGuideFn, FA_CREATE_ALWAYS | FA_WRITE) != FR_OK) {
+		f_unlink(userGuideFn);
+		error(ERROR_WRITE_CONFIG);
+	}
+
+	uint32_t writtenBytes;
+	f_write(&userGuide, consoleConverterBinary, sizeof(userGuideText), &writtenBytes);
+	f_close(&userGuide);
+
+	if(writtenBytes != sizeof(userGuideText)){
+		f_unlink(userGuideFn);
 		error(ERROR_WRITE_CONFIG);
 	}
 }
