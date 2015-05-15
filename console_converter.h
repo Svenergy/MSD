@@ -46,7 +46,7 @@ const char userGuideText[] =
 	"\n"
 	"**** Acquire Data ****\n"
 	"1)  Turn on the DAQ.\n"
-	"   * The Status LED will turn GREEN.\n"
+	"    * The Status LED will turn GREEN.\n"
 	"\n"
 	"2)  Press the button to begin acquiring data.\n"
 	"    * The Status LED is PURPLE during the acquisition delay,\n"
