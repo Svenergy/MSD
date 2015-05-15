@@ -358,10 +358,10 @@ void writeUserGuideToFile() {
 	}
 
 	uint32_t writtenBytes;
-	f_write(&userGuide, consoleConverterBinary, sizeof(userGuideText), &writtenBytes);
+	f_write(&userGuide, userGuideText, sizeof(userGuideText)-1, &writtenBytes);
 	f_close(&userGuide);
 
-	if(writtenBytes != sizeof(userGuideText)){
+	if(writtenBytes != sizeof(userGuideText)-1){
 		f_unlink(userGuideFn);
 		error(ERROR_WRITE_CONFIG);
 	}
