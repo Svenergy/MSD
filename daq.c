@@ -126,7 +126,7 @@ void RIT_IRQHandler(void){
 // 51cc, 49cc, 116cc no update /333cc vout update
 void MRT1_IRQHandler(void){
 	// Read result of last conversion
-	rawValSum[MRTCount++] += LPC_SPI1->RXDAT;
+	rawValSum[MRTCount++] += LPC_SPI1->RXDAT & 0xFFFF;
 
 	// Start the next conversion
 	LPC_SPI1->TXDATCTL = SPI_TXDATCTL_LEN(16-1) | SPI_TXDATCTL_EOT | SPI_TXCTL_ASSERT_SSEL0;
