@@ -210,14 +210,14 @@ void readConfigFromFile(){
 	if (line[0] == 'Y' || line[0] == 'y') {
 		/* Update Calibration - 18 Lines (Maybe) */
 		for (i = 0; i<MAX_CHAN;i++) {
-			getNonBlankLine(line,0);
+			getNonBlankLine(line,1);
 
 			/* 5V Zero Offset */
 			sscanf(line + countToColon(line), " %f", &fVal);
 			daq.channel[i].v5_zero_offset = floatToFix(fVal);
 			getNonBlankLine(line,0);
 
-			/* 5V LSB/Volt */
+			/* 5V Volt/LSB */
 			sscanf(line + countToColon(line), " %f", &fVal);
 			daq.channel[i].v5_uV_per_LSB = floatToFix(fVal*1000000);
 			getNonBlankLine(line,0);
@@ -227,7 +227,7 @@ void readConfigFromFile(){
 			daq.channel[i].v24_zero_offset = floatToFix(fVal);
 			getNonBlankLine(line,0);
 
-			/* 24V LSB/Volt */
+			/* 24V Volt/LSB */
 			sscanf(line + countToColon(line), " %f", &fVal);
 			daq.channel[i].v24_uV_per_LSB = floatToFix(fVal*1000000);
 		}
