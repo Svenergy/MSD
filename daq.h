@@ -72,7 +72,7 @@ typedef struct DAQ {
 	int32_t mv_out;			// Output voltage in mv, valid_range = <5000..24000>
 	int32_t sample_rate;	// Sample rate in Hz, valid range = <1..10000>
 	int8_t time_res;		// Sample time resolution in n digits where time is s.n
-	int32_t subsamples;		// Number of sub samples per data sample, normally 20k/sample_rate
+	uint32_t subsamples;	// Number of sub samples per data sample, normally 40k/sample_rate
 	int32_t trigger_delay;	// Delay in seconds before starting the data collection
 	DATA_T data_type;		// data mode, can be READABLE or COMPACT
 	char user_comment[101];	// User comment to appear at the top of each data file
