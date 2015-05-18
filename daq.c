@@ -416,7 +416,7 @@ void daq_stop(void){
 // Move data from the internal ram buffer to external ram
 void daq_toExtRam(void){
 	// Only move data if a full block is ready, and the external buffer is not going to overflow
-	if (RingBuffer_getSize(rawBuff) >= BLOCK_SIZE && ramBuffer_getSize() < (RAM_BUFF_SIZE - BLOCK_SIZE)){
+	while (RingBuffer_getSize(rawBuff) >= BLOCK_SIZE && ramBuffer_getSize() < (RAM_BUFF_SIZE - BLOCK_SIZE)){
 		// Need to transfer between buffers using an intermediate memory location
 		uint8_t data[BLOCK_SIZE];
 		RingBuffer_read(rawBuff, data, BLOCK_SIZE);
@@ -479,12 +479,18 @@ DATA_AVAILABLE_T daq_writeData(uint32_t max_blocks){
 
 // Flush data from raw buffer to file, formatting to string buffer as an intermediate step if needed
 void daq_flushData(void){
+	int32_t br;
+	uint8_t data[BLOCK_SIZE];
+
+	// Send any remaining data from internal ram to external
+	daq_toExtRam();
+	br = RingBuffer_read(rawBuff, data, BLOCK_SIZE);
+	ramBuffer_write(data, br);
+
 	// Write full blocks of data to the file
 	while(daq_writeData(1) == DATA_AVAILABLE){}
 
 	// Flush remaining partial block
-	char data[BLOCK_SIZE];
-	int32_t br;
 	switch (daq.data_type){
 	case READABLE:
 		br = RingBuffer_read(strBuff, data, BLOCK_SIZE);
