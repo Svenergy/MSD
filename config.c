@@ -370,7 +370,6 @@ void writeUserGuideToFile() {
 // Set the current time given a time string in the format
 // 2015-02-21 05:57:00
 void setTime(char *timeStr){
-	log_string("Time Set");
 	// Enable and configure Real-Time Clock
 	Chip_Clock_EnableRTCOsc();
 	Chip_RTC_Init(LPC_RTC);
@@ -389,6 +388,7 @@ void setTime(char *timeStr){
 	Chip_RTC_Reset(LPC_RTC); // Set then clear SWRESET bit
 	Chip_RTC_SetCount(LPC_RTC, t); // Set the time
 	Chip_RTC_Enable(LPC_RTC); // Start counting
+	log_string("Time Set");
 }
 
 char *getTimeStr(){
