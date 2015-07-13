@@ -442,7 +442,7 @@ DATA_AVAILABLE_T daq_writeData(uint32_t max_blocks){
 
 			while(RingBuffer_getSize(strBuff) < BLOCK_SIZE){
 				uint16_t rawData[MAX_CHAN];
-				if(ramBuffer_getSize() >= daq.channel_count*2){
+				if(ramBuffer_getSize() >= daq.channel_count*2  && daq.channel_count >= 1){
 					ramBuffer_read(rawData, daq.channel_count*2);
 					// Format data into string
 					char sampleStr[SAMPLE_STR_SIZE];
