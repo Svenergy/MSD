@@ -72,12 +72,12 @@ int main(void) {
 
 	// Initialize SD card, try up to 10 times before giving up
 	Board_LED_Color(LED_CYAN);
-	int i = 0;
-	while(i<10 && sd_reset(&cardinfo) != SD_OK){
-		i++;
-	}
-	if(i == 10) {
-		error(ERROR_SD_INIT);
+	uint8_t i = 0;
+	while(sd_reset(&cardinfo) != SD_OK){
+		if( i++ > 10){
+			error(ERROR_SD_INIT);
+			break;
+		}
 	}
 	sd_state = SD_READY;
 

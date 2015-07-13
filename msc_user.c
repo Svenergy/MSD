@@ -47,9 +47,16 @@ void MSC_Read(uint32_t offset, uint8_t** buff_adr, uint32_t length, uint32_t hig
   // address is initialized to 0, therefore valid data is not guaranteed for blocks near 0, even when address is 0
   if(new_address < address || new_address >= address + BLOCK_COUNT || bufferValid == false){
 	address = new_address;
-	if(sd_read_multiple_blocks(address, BLOCK_COUNT, bufr)!=SD_OK){
-	  error(ERROR_MSC_SD_READ);
+
+	// Attempt read up to 10 times before giving up
+	uint8_t i = 0;
+	while(sd_read_multiple_blocks(address, BLOCK_COUNT, bufr)!=SD_OK){
+	  if(i++ > 10){
+	    error(ERROR_MSC_SD_READ);
+	    break;
+	  }
 	}
+
 	bufferValid = true;
   }
 
@@ -71,9 +78,16 @@ void MSC_Write(uint32_t offset, uint8_t** buff_adr, uint32_t length, uint32_t hi
   memcpy(&bufw[j],*buff_adr,length);
 
   if((offset+USB_FS_MAX_BULK_PACKET)%SD_BLOCKSIZE==0) {
-    if(sd_write_block(offset/SD_BLOCKSIZE, bufw)!=SD_OK){
-    	error(ERROR_MSC_SD_WRITE);
+
+    // Attempt write up to 10 times before giving up
+    uint8_t i = 0;
+    while(sd_write_block(offset/SD_BLOCKSIZE, bufw)!=SD_OK){
+      if(i++ > 10){
+        error(ERROR_MSC_SD_WRITE);
+        break;
+      }
     }
+
   }
   Board_LED_Color(LED_YELLOW); // Yellow MSC idle
 }
