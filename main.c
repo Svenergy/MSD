@@ -55,6 +55,24 @@ int main(void) {
 	putLineUART("\n");
 #endif
 
+	// Set up clocking for SD lib
+	SystemCoreClockUpdate();
+	DWT_Init();
+
+	// Shutdown if the WDT triggered the reset
+	if(Chip_WWDT_GetStatus(LPC_WWDT) & WWDT_WDMOD_WDTOF){
+		Chip_GPIO_SetPinState(LPC_GPIO, 0, PWR_ON_OUT, 0);
+	}
+
+	// Enable the WDT oscillator
+	uint32_t wdtFreq;
+	Chip_SYSCTL_PowerUp(SYSCTL_POWERDOWN_WDTOSC_PD);
+	wdtFreq = Chip_Clock_GetWDTOSCRate() / 4;			// WDT divides the input frequency by 4
+	Chip_WWDT_Init(LPC_WWDT);							// Initialize WWDT (also enables WWDT clock)
+	Chip_WWDT_SetTimeOut(LPC_WWDT, wdtFreq * 10);		// Set watchdog feed time constant to approximately 10s
+	Chip_WWDT_SetOption(LPC_WWDT, WWDT_WDMOD_WDRESET);	// Configure WWDT to reset on timeout
+	Chip_WWDT_Start(LPC_WWDT);							// Start watchdog
+
 	// Initialize ring buffer used to buffer raw data samples
 	rawBuff = RingBuffer_initWithBuffer(RAW_BUFF_SIZE, RAM1_BASE);
 	ramBuffer_init();
@@ -62,10 +80,6 @@ int main(void) {
 	// Enable EEPROM clock and reset EEPROM controller
 	Chip_Clock_EnablePeriphClock(SYSCTL_CLOCK_EEPROM);
 	Chip_SYSCTL_PeriphReset(RESET_EEPROM);
-
-	// Set up clocking for SD lib
-	SystemCoreClockUpdate();
-	DWT_Init();
 
 	// Set up the FatFS Object
 	f_mount(fatfs,"",0);

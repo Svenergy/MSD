@@ -42,6 +42,12 @@ void error_handler(void){
 
 		// Reset SD card
 		sd_reset(&cardinfo);
+		uint8_t i =0;
+		while(sd_reset(&cardinfo) != SD_OK){
+			if(i++ > 10){
+				break;
+			}
+		}
 
 		// Write error code to log file
 		log_string(errorString[globalError]);

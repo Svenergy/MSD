@@ -120,6 +120,9 @@ void SysTick_Handler(void){
 
 	/* Handle errors */
 	error_handler();
+
+	/* Feed the WDT after every successful completion of the systick loop */
+	Chip_WWDT_Feed(LPC_WWDT);
 }
 
 // Halt and power off

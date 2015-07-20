@@ -83,13 +83,13 @@ void readConfigDefault(void){
 	}
 
 	// Sample rate in Hz
-	daq.sample_rate = 10000;
+	daq.sample_rate = 1000;
 
 	// Trigger Delay in seconds
 	daq.trigger_delay = 0;
 
 	// Data mode can be READABLE or BINARY
-	daq.data_type = BINARY;
+	daq.data_type = READABLE;
 
 	// Vout = 5v
 	daq.mv_out = 5000;
